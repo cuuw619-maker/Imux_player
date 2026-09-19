@@ -26,7 +26,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 SwitchRow("Resume playback", settings.resumePlayback) { vm.updateSettings { setResume(it) } }
                 SwitchRow("Autoplay", settings.autoplay) { vm.updateSettings { setAutoplay(it) } }
                 SwitchRow("Skip silence", settings.skipSilence) { vm.updateSettings { setSkipSilence(it) } }
-                Text("Playback speed \${"%.2f".format(settings.playbackSpeed)}×", modifier = Modifier.padding(horizontal = 20.dp))
+                Text("Playback speed " + "%.2f".format(settings.playbackSpeed) + "×", modifier = Modifier.padding(horizontal = 20.dp))
                 Slider(value = settings.playbackSpeed, onValueChange = { vm.speed((it * 20).toInt() / 20f) }, valueRange = 0.5f..2f, modifier = Modifier.padding(horizontal = 20.dp))
             }
         }
