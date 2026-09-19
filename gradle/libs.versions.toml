@@ -23,6 +23,7 @@ icons={module="androidx.compose.material:material-icons-extended"}
 material3={module="androidx.compose.material3:material3"}
 room={module="androidx.room:room-runtime",version.ref="room"}
 roomktx={module="androidx.room:room-ktx",version.ref="room"}
+roomcompiler={module="androidx.room:room-compiler",version.ref="room"}
 datastore={module="androidx.datastore:datastore-preferences",version.ref="datastore"}
 documentfile={module="androidx.documentfile:documentfile",version.ref="documentfile"}
 exo={module="androidx.media3:media3-exoplayer",version.ref="media3"}
