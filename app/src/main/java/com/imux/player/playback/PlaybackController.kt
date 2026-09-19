@@ -10,7 +10,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.imux.player.data.Track
 import kotlinx.coroutines.flow.MutableStateFlow
 class PlaybackController(context:Context){
- private val future:ListenableFuture<MediaController>=MediaController.Builder(context,SessionToken(context,ComponentName(context,ImuxPlaybackService::class.java))).buildAsync()
+ private val future:ListenableFuture<MediaController> =MediaController.Builder(context,SessionToken(context,ComponentName(context,ImuxPlaybackService::class.java))).buildAsync()
  val current=MutableStateFlow<Track?>(null)
  fun play(t:Track){future.get().apply{setMediaItem(MediaItem.Builder().setUri(Uri.parse(t.uri)).setMediaId(t.uri).setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album).build()).build());prepare();play()};current.value=t}
  fun toggle(){future.get().let{if(it.isPlaying)it.pause()else it.play()}}
