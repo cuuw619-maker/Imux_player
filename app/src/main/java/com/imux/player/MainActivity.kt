@@ -43,15 +43,16 @@ class MainActivity : ComponentActivity() {
                 runCatching {
                     val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     runCatching { contentResolver.takePersistableUriPermission(uri, flags) }
-                    val name = runCatching {
-                        DocumentFile.fromTreeUri(this, uri)?.name
-                    }.getOrNull().orEmpty().ifBlank { "Music" }
+                    val root = DocumentFile.fromTreeUri(this, uri)
+                        ?: error("The selected folder is no longer available.")
+                    root.listFiles()
+                    val name = root.name?.takeIf { it.isNotBlank() } ?: "Music"
                     vm.addFolder(uri.toString(), name)
                 }.onFailure {
-                    vm.clearOperationError()
-                    // The picker/provider is outside the app process. Never let a provider
-                    // exception escape the ActivityResult callback.
-                    vm.addFolder("invalid://folder", "Music")
+                    vm.reportOperationError(
+                        it.message?.takeIf(String::isNotBlank)
+                            ?: "Unable to access the selected music folder."
+                    )
                 }
             }
 
