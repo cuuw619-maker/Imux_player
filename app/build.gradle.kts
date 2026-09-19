@@ -8,4 +8,5 @@ dependencies {
  implementation(platform(libs.bom)); implementation(libs.core); implementation(libs.activity); implementation(libs.lifecycle); implementation(libs.viewmodel); implementation(libs.navigation); implementation(libs.ui); implementation(libs.icons); implementation(libs.material3)
  implementation(libs.room); implementation(libs.roomktx); ksp(libs.room)
  implementation(libs.datastore); implementation(libs.documentfile); implementation(libs.exo); implementation(libs.session)
+ testImplementation("junit:junit:4.13.2")
 }
