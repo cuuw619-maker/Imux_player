@@ -33,8 +33,9 @@ fun NowPlayingScreen(
     artworkAnimations: Boolean,
     onBack: () -> Unit
 ) {
-    var accent by remember { mutableStateOf(Color(0xFF6750A4)) }
-    LaunchedEffect(state.current?.uri) { accent = MaterialTheme.colorScheme.primary }
+    val themePrimary = MaterialTheme.colorScheme.primary
+    var accent by remember { mutableStateOf(themePrimary) }
+    LaunchedEffect(state.current?.uri, themePrimary) { accent = themePrimary }
     var dragging by remember(state.current?.uri) { mutableStateOf(false) }
     var dragProgress by remember(state.current?.uri) { mutableFloatStateOf(0f) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
