@@ -61,7 +61,7 @@ fun NowPlayingScreen(
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth()) {
                 AnimatedContent(
-                        targetState = state.current?.uri,
+                        targetState = state.current,
                         transitionSpec = {
                             if (artworkAnimations && !reducedMotion) {
                                 (fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) togetherWith
@@ -71,9 +71,9 @@ fun NowPlayingScreen(
                         label = "track-change"
                     ) {
                     Column {
-                        Text(state.current?.title ?: "Nothing playing", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(state.current?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (state.current?.album?.isNotBlank() == true) Text(state.current.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(it?.title ?: "Nothing playing", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(it?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (it?.album?.isNotBlank() == true) Text(it.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
