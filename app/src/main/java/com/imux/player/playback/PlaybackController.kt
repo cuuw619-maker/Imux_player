@@ -104,7 +104,6 @@ class PlaybackController(context: Context) : Player.Listener {
             else -> Player.REPEAT_MODE_OFF
         }
         c.setPlaybackSpeed(settings.playbackSpeed)
-        c.skipSilenceEnabled = settings.skipSilence
         publish()
     }
 
