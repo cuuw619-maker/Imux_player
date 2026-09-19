@@ -1,7 +1,5 @@
 package com.imux.player
 
-import android.content.Intent
-import android.content.ActivityNotFoundException
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,7 +19,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.imux.player.ui.*
 
@@ -38,45 +35,30 @@ class MainActivity : ComponentActivity() {
             val operationError by vm.operationError.collectAsState()
             var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
             var nowPlaying by rememberSaveable { mutableStateOf(false) }
+            var folderPickerActive by rememberSaveable { mutableStateOf(false) }
 
             val picker = rememberLauncherForActivityResult(
-                ActivityResultContracts.StartActivityForResult()
-            ) { result ->
-                val uri = result.data?.data
-                if (result.resultCode != RESULT_OK || uri == null) return@rememberLauncherForActivityResult
-
-                runCatching {
-                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    runCatching { contentResolver.takePersistableUriPermission(uri, flags) }
-
-                    val root = DocumentFile.fromTreeUri(this, uri)
-                        ?: error("The selected folder is no longer available.")
-                    val name = root.name?.takeIf { it.isNotBlank() } ?: "Music"
-                    AppLogger.info("PICKER", "Folder selected: " + uri)
-                    vm.addFolder(uri.toString(), name)
-                }.onFailure {
-                    AppLogger.error("PICKER", "Failed while processing selected folder", it)
-                    vm.reportOperationError(
-                        it.message?.takeIf(String::isNotBlank)
-                            ?: "Unable to access the selected music folder."
-                    )
+                ActivityResultContracts.OpenDocumentTree()
+            ) { uri ->
+                folderPickerActive = false
+                if (uri == null) {
+                    AppLogger.info("PICKER", "Folder picker cancelled")
+                    return@rememberLauncherForActivityResult
                 }
+
+                AppLogger.info("PICKER", "Folder picker returned URI: $uri")
+                vm.addFolder(uri.toString())
             }
 
             fun openFolderPicker() {
+                if (folderPickerActive) return
+                folderPickerActive = true
+                AppLogger.info("PICKER", "Opening Android OpenDocumentTree")
                 runCatching {
-                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                        addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                        addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
-                    }
-                    val resolver = packageManager.resolveActivity(intent, 0)
-                        ?: throw ActivityNotFoundException("No Android document picker is installed.")
-                    AppLogger.info("PICKER", "Launching ACTION_OPEN_DOCUMENT_TREE via " + resolver)
-                    picker.launch(intent)
+                    picker.launch(null)
                 }.onFailure {
-                    AppLogger.error("PICKER", "Failed to launch Android folder picker", it)
+                    folderPickerActive = false
+                    AppLogger.error("PICKER", "OpenDocumentTree launch failed", it)
                     vm.reportOperationError(
                         it.message?.takeIf(String::isNotBlank)
                             ?: "Android could not open the folder picker."
@@ -99,7 +81,11 @@ class MainActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.height(28.dp))
-                            Button(onClick = ::openFolderPicker, modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = ::openFolderPicker,
+                                enabled = !folderPickerActive,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text("Choose music folder")
                             }
                         }
