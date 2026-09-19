@@ -3,6 +3,7 @@ package com.imux.player.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.imux.player.AppLogger
 import com.imux.player.ImuxApplication
 import com.imux.player.data.*
 import com.imux.player.playback.PlaybackController
@@ -38,12 +39,21 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
         viewModelScope.launch { playback.applySettings(app.settings.settings.first()) }
     }
 
-    fun addFolder(uri: String, name: String) = viewModelScope.launch {
+    fun addFolder(uri: String) = viewModelScope.launch {
         operationError.value = null
+        AppLogger.info("LIBRARY", "Registering selected folder: $uri")
+
         runCatching {
-            app.library.addFolder(uri, name)
+            app.library.addFolder(uri)
             app.settings.done()
+            AppLogger.info("LIBRARY", "Folder registered successfully: $uri")
+
+            // Scan in the repository's IO context. The UI is not blocked while
+            // a slow or broken DocumentsProvider is being traversed.
+            app.library.scanAll()
+            AppLogger.info("LIBRARY", "Library scan finished after folder selection")
         }.onFailure {
+            AppLogger.error("LIBRARY", "Folder selection/scan failed", it)
             setOperationError(it, "Unable to access the selected music folder.")
         }
     }
