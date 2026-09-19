@@ -3,7 +3,7 @@ package com.imux.player.ui
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.*\nimport androidx.compose.foundation.gestures.detectHorizontalDragGestures\nimport androidx.compose.foundation.gestures.detectVerticalDragGestures\nimport androidx.compose.foundation.gestures.detectTapGestures\nimport androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -57,7 +57,19 @@ fun NowPlayingScreen(
                 IconButton({ queueOpen = true }) { Icon(Icons.Default.QueueMusic, "Queue") }
             }
             Spacer(Modifier.height(22.dp))
-            ArtworkImage(state.current, app, Modifier.fillMaxWidth().aspectRatio(1f).padding(horizontal = 8.dp)) { accent = it }
+            ArtworkImage(
+                state.current,
+                app,
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .padding(horizontal = 8.dp)
+                    .pointerInput(state.current?.uri) {
+                        detectTapGestures(
+                            onDoubleTap = { vm.togglePlayback() }
+                        )
+                    }
+            ) { accent = it }
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth()) {
                 AnimatedContent(
@@ -138,7 +150,28 @@ fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
     ) {
-        Surface(onClick = onOpen, tonalElevation = 4.dp, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Surface(
+            onClick = onOpen,
+            tonalElevation = 4.dp,
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .pointerInput(state.current?.uri) {
+                    var totalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, amount ->
+                            change.consume()
+                            totalDrag += amount
+                        },
+                        onDragEnd = {
+                            if (kotlin.math.abs(totalDrag) >= 100f) {
+                                if (totalDrag < 0f) vm.next() else vm.previous()
+                            }
+                        }
+                    )
+                }
+        ) {
             Column {
                 if (showProgress && state.durationMs > 0) {
                     LinearProgressIndicator({ (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) }, Modifier.fillMaxWidth().height(3.dp))
