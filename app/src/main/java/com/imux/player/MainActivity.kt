@@ -1,6 +1,7 @@
 package com.imux.player
 
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -50,10 +51,11 @@ class MainActivity : ComponentActivity() {
 
                     val root = DocumentFile.fromTreeUri(this, uri)
                         ?: error("The selected folder is no longer available.")
-                    root.listFiles()
                     val name = root.name?.takeIf { it.isNotBlank() } ?: "Music"
+                    AppLogger.info("PICKER", "Folder selected: " + uri)
                     vm.addFolder(uri.toString(), name)
                 }.onFailure {
+                    AppLogger.error("PICKER", "Failed while processing selected folder", it)
                     vm.reportOperationError(
                         it.message?.takeIf(String::isNotBlank)
                             ?: "Unable to access the selected music folder."
@@ -69,8 +71,12 @@ class MainActivity : ComponentActivity() {
                         addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                         addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
                     }
+                    val resolver = packageManager.resolveActivity(intent, 0)
+                        ?: throw ActivityNotFoundException("No Android document picker is installed.")
+                    AppLogger.info("PICKER", "Launching ACTION_OPEN_DOCUMENT_TREE via " + resolver)
                     picker.launch(intent)
                 }.onFailure {
+                    AppLogger.error("PICKER", "Failed to launch Android folder picker", it)
                     vm.reportOperationError(
                         it.message?.takeIf(String::isNotBlank)
                             ?: "Android could not open the folder picker."
