@@ -5,7 +5,7 @@ android { namespace="com.imux.player"; compileSdk=36
  kotlinOptions { jvmTarget="17" }; buildFeatures { compose=true }
 }
 dependencies {
- implementation(platform(libs.bom)); implementation(libs.core); implementation(libs.activity); implementation(libs.lifecycle); implementation(libs.viewmodel); implementation(libs.navigation); implementation(libs.ui); implementation(libs.material3)
+ implementation(platform(libs.bom)); implementation(libs.core); implementation(libs.activity); implementation(libs.lifecycle); implementation(libs.viewmodel); implementation(libs.navigation); implementation(libs.ui); implementation(libs.icons); implementation(libs.material3)
  implementation(libs.room); implementation(libs.roomktx); ksp(libs.room)
- implementation(libs.datastore); implementation(libs.exo); implementation(libs.session)
+ implementation(libs.datastore); implementation(libs.documentfile); implementation(libs.exo); implementation(libs.session)
 }
