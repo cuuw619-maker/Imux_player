@@ -62,12 +62,19 @@ class MainActivity : ComponentActivity() {
                 } else {
                     AnimatedContent(targetState = nowPlaying, label = "player-surface") { fullPlayer ->
                         if (fullPlayer) {
-                            NowPlayingScreen(vm, app, playback) { nowPlaying = false }
+                            NowPlayingScreen(
+                                vm,
+                                app,
+                                playback,
+                                reducedMotion = settings.animation != com.imux.player.data.AnimationMode.Full,
+                                artworkAnimations = settings.artworkAnimations,
+                                onBack = { nowPlaying = false }
+                            )
                         } else {
                             Scaffold(
                                 bottomBar = {
                                     Column {
-                                        if (settings.showMiniPlayer) MiniPlayer(playback, app, { nowPlaying = true }, vm)
+                                        if (settings.showMiniPlayer) MiniPlayer(playback, app, settings.showPlaybackProgress, { nowPlaying = true }, vm)
                                         NavigationBar {
                                             NavigationBarItem(destination == AppDestination.Home, { destination = AppDestination.Home }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Home") })
                                             NavigationBarItem(destination == AppDestination.Library, { destination = AppDestination.Library }, icon = { Icon(Icons.Default.LibraryMusic, null) }, label = { Text("Library") })
