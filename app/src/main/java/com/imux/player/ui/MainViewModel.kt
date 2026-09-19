@@ -26,6 +26,10 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
         operationError.value = null
     }
 
+    private fun setOperationError(error: Throwable, fallback: String) {
+        operationError.value = error.message?.takeIf(String::isNotBlank) ?: fallback
+    }
+
     fun reportOperationError(message: String) {
         operationError.value = message
     }
@@ -40,8 +44,7 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
             app.library.addFolder(uri, name)
             app.settings.done()
         }.onFailure {
-            operationError.value = it.message?.takeIf(String::isNotBlank)
-                ?: "Unable to access the selected music folder."
+            setOperationError(it, "Unable to access the selected music folder.")
         }
     }
 
@@ -49,8 +52,7 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
         operationError.value = null
         runCatching { app.library.scanAll() }
             .onFailure {
-                operationError.value = it.message?.takeIf(String::isNotBlank)
-                    ?: "Music library scan failed."
+                setOperationError(it, "Music library scan failed.")
             }
     }
 
