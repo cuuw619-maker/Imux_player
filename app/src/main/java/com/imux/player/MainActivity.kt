@@ -38,11 +38,16 @@ class MainActivity : ComponentActivity() {
             var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
             var nowPlaying by rememberSaveable { mutableStateOf(false) }
 
-            val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-                if (uri == null) return@rememberLauncherForActivityResult
+            val picker = rememberLauncherForActivityResult(
+                ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                val uri = result.data?.data
+                if (result.resultCode != RESULT_OK || uri == null) return@rememberLauncherForActivityResult
+
                 runCatching {
                     val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     runCatching { contentResolver.takePersistableUriPermission(uri, flags) }
+
                     val root = DocumentFile.fromTreeUri(this, uri)
                         ?: error("The selected folder is no longer available.")
                     root.listFiles()
@@ -52,6 +57,23 @@ class MainActivity : ComponentActivity() {
                     vm.reportOperationError(
                         it.message?.takeIf(String::isNotBlank)
                             ?: "Unable to access the selected music folder."
+                    )
+                }
+            }
+
+            fun openFolderPicker() {
+                runCatching {
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                        addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                        addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+                    }
+                    picker.launch(intent)
+                }.onFailure {
+                    vm.reportOperationError(
+                        it.message?.takeIf(String::isNotBlank)
+                            ?: "Android could not open the folder picker."
                     )
                 }
             }
@@ -71,7 +93,7 @@ class MainActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.height(28.dp))
-                            Button(onClick = { picker.launch(null) }, modifier = Modifier.fillMaxWidth()) {
+                            Button(onClick = ::openFolderPicker, modifier = Modifier.fillMaxWidth()) {
                                 Text("Choose music folder")
                             }
                         }
