@@ -17,6 +17,12 @@ class LibraryRepository(
     val folders = db.folders().all()
 
     suspend fun addFolder(uri: String, name: String) = withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                Uri.parse(uri),
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
         val root = runCatching { DocumentFile.fromTreeUri(context, Uri.parse(uri)) }.getOrNull()
             ?: error("Android did not provide access to the selected folder.")
 
