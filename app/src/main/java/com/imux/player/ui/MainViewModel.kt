@@ -20,6 +20,7 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
     val onboarding = app.settings.onboarding.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val settings = app.settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerSettings())
     val playbackState = playback.state
+    val operationError = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     init {
         viewModelScope.launch { playback.applySettings(app.settings.settings.first()) }
@@ -30,7 +31,14 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
         app.settings.done()
     }
 
-    fun scan() = viewModelScope.launch { app.library.scanAll() }
+    fun scan() = viewModelScope.launch {
+        operationError.value = null
+        runCatching { app.library.scanAll() }
+            .onFailure {
+                operationError.value = it.message?.takeIf(String::isNotBlank)
+                    ?: "Music library scan failed."
+            }
+    }
 
     fun favorite(track: Track) = viewModelScope.launch { app.library.favorite(track.uri, !track.favorite) }
 
