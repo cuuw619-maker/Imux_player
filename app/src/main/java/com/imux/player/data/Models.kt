@@ -1,0 +1,7 @@
+package com.imux.player.data
+import androidx.room.*
+@Entity(tableName="tracks") data class Track(@PrimaryKey val uri:String,val title:String,val artist:String="",val album:String="",val duration:Long=0,val favorite:Boolean=false,val addedAt:Long=System.currentTimeMillis(),val lastPlayed:Long?=null,val playCount:Int=0,val position:Long=0,val mime:String="",val size:Long=0)
+@Entity(tableName="folders") data class Folder(@PrimaryKey val uri:String,val name:String)
+@Dao interface TrackDao{@Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE") fun all():kotlinx.coroutines.flow.Flow<List<Track>>;@Insert(onConflict=OnConflictStrategy.REPLACE)suspend fun upsertAll(v:List<Track>);@Query("UPDATE tracks SET favorite=:v WHERE uri=:u")suspend fun favorite(u:String,v:Boolean);@Query("UPDATE tracks SET lastPlayed=:t,playCount=playCount+1 WHERE uri=:u")suspend fun played(u:String,t:Long)}
+@Dao interface FolderDao{@Query("SELECT * FROM folders")fun all():kotlinx.coroutines.flow.Flow<List<Folder>>;@Insert(onConflict=OnConflictStrategy.REPLACE)suspend fun add(v:Folder);@Query("DELETE FROM folders WHERE uri=:u")suspend fun remove(u:String)}
+@Database(entities=[Track::class,Folder::class],version=1) abstract class ImuxDatabase:RoomDatabase(){abstract fun tracks():TrackDao;abstract fun folders():FolderDao}

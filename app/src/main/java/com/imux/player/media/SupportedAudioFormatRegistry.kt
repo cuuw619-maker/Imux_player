@@ -1,0 +1,5 @@
+package com.imux.player.media
+import com.imux.player.data.SettingsRepository
+import kotlinx.coroutines.flow.first
+data class SupportedAudioFormat(val extension:String,val mime:String)
+class SupportedAudioFormatRegistry(private val s:SettingsRepository){val formats=listOf(SupportedAudioFormat("mp3","audio/mpeg"),SupportedAudioFormat("m4a","audio/mp4"),SupportedAudioFormat("mp4","audio/mp4"),SupportedAudioFormat("aac","audio/aac"),SupportedAudioFormat("flac","audio/flac"),SupportedAudioFormat("wav","audio/wav"),SupportedAudioFormat("ogg","audio/ogg"),SupportedAudioFormat("oga","audio/ogg"),SupportedAudioFormat("opus","audio/opus"),SupportedAudioFormat("amr","audio/amr"),SupportedAudioFormat("3gp","audio/3gpp"),SupportedAudioFormat("3gpp","audio/3gpp"));suspend fun accepts(name:String)=formats.any{it.extension==name.substringAfterLast('.',"").lowercase()&&it.extension in s.formats.first()}}
