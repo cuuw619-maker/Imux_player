@@ -23,8 +23,17 @@ import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NowPlayingScreen(vm: MainViewModel, app: ImuxApplication, state: PlaybackState, onBack: () -> Unit) {
+fun NowPlayingScreen(
+    vm: MainViewModel,
+    app: ImuxApplication,
+    state: PlaybackState,
+    reducedMotion: Boolean,
+    artworkAnimations: Boolean,
+    onBack: () -> Unit
+) {
     var accent by remember(state.current?.uri) { mutableStateOf(MaterialTheme.colorScheme.primary) }
+    var dragging by remember(state.current?.uri) { mutableStateOf(false) }
+    var dragProgress by remember(state.current?.uri) { mutableFloatStateOf(0f) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
     Box(
@@ -47,7 +56,16 @@ fun NowPlayingScreen(vm: MainViewModel, app: ImuxApplication, state: PlaybackSta
             ArtworkImage(state.current, app, Modifier.fillMaxWidth().aspectRatio(1f).padding(horizontal = 8.dp)) { accent = it }
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth()) {
-                AnimatedContent(targetState = state.current?.uri, label = "track-change") {
+                AnimatedContent(
+                        targetState = state.current?.uri,
+                        transitionSpec = {
+                            if (artworkAnimations && !reducedMotion) {
+                                (fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) togetherWith
+                                    fadeOut(animationSpec = androidx.compose.animation.core.tween(160)))
+                            } else EnterTransition.None togetherWith ExitTransition.None
+                        },
+                        label = "track-change"
+                    ) {
                     Column {
                         Text(state.current?.title ?: "Nothing playing", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(state.current?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -56,15 +74,24 @@ fun NowPlayingScreen(vm: MainViewModel, app: ImuxApplication, state: PlaybackSta
                 }
             }
             Slider(
-                value = progress.coerceIn(0f, 1f),
-                onValueChange = { if (state.durationMs > 0) vm.seekTo((it * state.durationMs).toLong()) },
+                value = if (dragging) dragProgress else progress.coerceIn(0f, 1f),
+                onValueChange = {
+                    dragging = true
+                    dragProgress = it
+                },
+                onValueChangeFinished = {
+                    dragging = false
+                    if (state.durationMs > 0) vm.seekTo((dragProgress * state.durationMs).toLong())
+                },
                 modifier = Modifier.fillMaxWidth()
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(formatTime(state.positionMs))
                 Text("-\${formatTime(max(0L, state.durationMs - state.positionMs))}")
             }
-            ImuxVisualizer(progress, state.status == PlaybackStatus.Playing, accent, reducedMotion = false)
+            if (state.status == PlaybackStatus.Playing && !reducedMotion) {
+                ImuxVisualizer(progress, true, accent, reducedMotion = reducedMotion)
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 IconButton({ vm.shuffle(!state.shuffleEnabled) }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (state.shuffleEnabled) accent else LocalContentColor.current) }
                 IconButton(vm::previous) { Icon(Icons.Default.SkipPrevious, "Previous") }
@@ -101,7 +128,7 @@ fun NowPlayingScreen(vm: MainViewModel, app: ImuxApplication, state: PlaybackSta
 }
 
 @Composable
-fun MiniPlayer(state: PlaybackState, app: ImuxApplication, onOpen: () -> Unit, vm: MainViewModel) {
+fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean, onOpen: () -> Unit, vm: MainViewModel) {
     AnimatedVisibility(
         visible = state.current != null,
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -109,7 +136,7 @@ fun MiniPlayer(state: PlaybackState, app: ImuxApplication, onOpen: () -> Unit, v
     ) {
         Surface(onClick = onOpen, tonalElevation = 4.dp, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             Column {
-                if (state.durationMs > 0) {
+                if (showProgress && state.durationMs > 0) {
                     LinearProgressIndicator({ (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) }, Modifier.fillMaxWidth().height(3.dp))
                 }
                 Row(Modifier.padding(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
