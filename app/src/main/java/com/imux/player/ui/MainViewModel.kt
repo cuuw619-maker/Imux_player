@@ -22,13 +22,27 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
     val playbackState = playback.state
     val operationError = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
+    fun clearOperationError() {
+        operationError.value = null
+    }
+
+    fun reportOperationError(message: String) {
+        operationError.value = message
+    }
+
     init {
         viewModelScope.launch { playback.applySettings(app.settings.settings.first()) }
     }
 
     fun addFolder(uri: String, name: String) = viewModelScope.launch {
-        app.library.addFolder(uri, name)
-        app.settings.done()
+        operationError.value = null
+        runCatching {
+            app.library.addFolder(uri, name)
+            app.settings.done()
+        }.onFailure {
+            operationError.value = it.message?.takeIf(String::isNotBlank)
+                ?: "Unable to access the selected music folder."
+        }
     }
 
     fun scan() = viewModelScope.launch {
