@@ -76,6 +76,7 @@ class SettingsRepository(private val context: Context) {
             showPlaybackProgress = p[progressKey] ?: true,
             automaticScanning = p[automaticScanKey] ?: false
         )
+    }
 
     suspend fun done() = context.store.edit { it[onboardingKey] = true }
     suspend fun format(extension: String, enabled: Boolean) = context.store.edit {
