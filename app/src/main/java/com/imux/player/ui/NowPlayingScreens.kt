@@ -16,11 +16,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.animation.core.RepeatMode as CoreRepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -78,16 +75,7 @@ fun NowPlayingScreen(
                 animationSpec = tween(if (reducedMotion) 0 else 650),
                 label = "artwork-scale"
             )
-            val haloTransition = rememberInfiniteTransition(label = "artwork-halo")
-            val haloRotation by haloTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = 360f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(9000),
-                    repeatMode = CoreRepeatMode.Restart
-                ),
-                label = "artwork-halo-rotation"
-            )
+            val haloRotation = rememberImuxRotation(motionEnabled && state.status == PlaybackStatus.Playing)
             Box(
                 Modifier
                     .fillMaxWidth()
