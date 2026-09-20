@@ -174,7 +174,7 @@ class PlaybackController(context: Context) : Player.Listener {
         return ready
     }
 
-    private fun loadCurrent(c: MediaController) {
+    private fun loadCurrent(c: Player) {
         val track = knownTracks.getOrNull(currentIndex) ?: return
         c.setMediaItem(mediaItem(track), 0L)
         c.prepare()
@@ -273,7 +273,7 @@ class PlaybackController(context: Context) : Player.Listener {
         mainScope.launch {
             if (player.playbackState == Player.STATE_ENDED && repeatMode == RepeatMode.All) {
                 if (advanceIndex(1)) {
-                    loadCurrent(player as MediaController)
+                    loadCurrent(player)
                     return@launch
                 }
             }
