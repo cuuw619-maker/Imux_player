@@ -2,10 +2,19 @@ package com.imux.player
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -27,6 +36,11 @@ import com.imux.player.data.AnimationMode
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Lune-style edge-to-edge status/navigation bars: transparent bars with system-controlled icon contrast.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        )
         val app = application as ImuxApplication
         setContent {
             val vm: MainViewModel = viewModel(factory = MainViewModel.factory(app))
@@ -92,7 +106,18 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } else {
-                    AnimatedContent(targetState = nowPlaying, label = "player-surface") { fullPlayer ->
+                    AnimatedContent(
+                        targetState = nowPlaying,
+                        transitionSpec = {
+                            if (settings.animation == AnimationMode.Off) {
+                                EnterTransition.None togetherWith ExitTransition.None
+                            } else {
+                                (fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) + scaleIn(initialScale = 0.985f, animationSpec = androidx.compose.animation.core.tween(260))) togetherWith
+                                    (fadeOut(animationSpec = androidx.compose.animation.core.tween(150)) + scaleOut(targetScale = 0.985f, animationSpec = androidx.compose.animation.core.tween(180)))
+                            }
+                        },
+                        label = "player-surface"
+                    ) { fullPlayer ->
                         if (fullPlayer) {
                             NowPlayingScreen(
                                 vm,
