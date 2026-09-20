@@ -2,6 +2,7 @@ package com.imux.player.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -15,7 +16,14 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.core.RepeatMode as CoreRepeatMode
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,19 +68,53 @@ fun NowPlayingScreen(
                 IconButton({ queueOpen = true }) { Icon(Icons.Default.QueueMusic, "Queue") }
             }
             Spacer(Modifier.height(22.dp))
-            ArtworkImage(
-                state.current,
-                app,
+            val motionEnabled = !reducedMotion && artworkAnimations
+            val artworkScale by animateFloatAsState(
+                targetValue = if (state.status == PlaybackStatus.Playing) 1.018f else 1f,
+                animationSpec = tween(if (reducedMotion) 0 else 650),
+                label = "artwork-scale"
+            )
+            val haloTransition = rememberInfiniteTransition(label = "artwork-halo")
+            val haloRotation by haloTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(9000),
+                    repeatMode = CoreRepeatMode.Restart
+                ),
+                label = "artwork-halo-rotation"
+            )
+            Box(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .padding(horizontal = 8.dp)
-                    .pointerInput(state.current?.uri) {
-                        detectTapGestures(
-                            onDoubleTap = { vm.togglePlayback() }
+            ) {
+                if (motionEnabled && state.status == PlaybackStatus.Playing) {
+                    Canvas(
+                        Modifier
+                            .matchParentSize()
+                            .graphicsLayer { rotationZ = haloRotation }
+                    ) {
+                        drawCircle(
+                            color = accent.copy(alpha = 0.12f),
+                            radius = size.minDimension * 0.49f
                         )
                     }
-            ) { accent = it }
+                }
+                ArtworkImage(
+                    state.current,
+                    app,
+                    Modifier
+                        .matchParentSize()
+                        .scale(artworkScale)
+                        .pointerInput(state.current?.uri) {
+                            detectTapGestures(
+                                onDoubleTap = { vm.togglePlayback() }
+                            )
+                        }
+                ) { accent = it }
+            }
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth()) {
                 AnimatedContent(
