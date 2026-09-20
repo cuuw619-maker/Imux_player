@@ -53,20 +53,21 @@ fun HomeScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Un
         }
 
         if (playback.current != null) {
+            val current = playback.current!!
             item {
                 ImuxTonalCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     Row(
                         Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ArtworkImage(playback.current, app, Modifier.size(84.dp))
+                        ArtworkImage(current, app, Modifier.size(84.dp))
                         Spacer(Modifier.width(16.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Continue listening", style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary)
-                            Text(playback.current.title, style = MaterialTheme.typography.titleLarge,
+                            Text(current.title, style = MaterialTheme.typography.titleLarge,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(playback.current.artist.ifBlank { "Unknown artist" },
+                            Text(current.artist.ifBlank { "Unknown artist" },
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(8.dp))
@@ -263,7 +264,7 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
         ) { selectedTab ->
             when (selectedTab) {
                 2 -> ArtistList(artistGroups, query, vm, app, openNowPlaying)
-                1 -> AlbumList(albumGroups, query, vm, app, openNowPlaying)
+                1 -> AlbumList(albumGroups, query, vm, app, playback.current?.uri, openNowPlaying)
                 3 -> FolderList(folders)
                 4 -> PlaylistList(playlists, vm)
                 else -> LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
