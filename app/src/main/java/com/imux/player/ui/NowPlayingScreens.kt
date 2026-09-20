@@ -154,11 +154,29 @@ fun NowPlayingScreen(
             if (state.status == PlaybackStatus.Playing && !reducedMotion) {
                 ImuxVisualizer(progress, true, accent, reducedMotion = reducedMotion)
             }
+            val playButtonScale by animateFloatAsState(
+                targetValue = if (state.status == PlaybackStatus.Playing && motionEnabled) 1.04f else 1f,
+                animationSpec = tween(320),
+                label = "play-button-scale"
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 IconButton({ vm.shuffle(!state.shuffleEnabled) }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (state.shuffleEnabled) accent else LocalContentColor.current) }
                 IconButton(vm::previous) { Icon(Icons.Default.SkipPrevious, "Previous") }
-                FilledIconButton(vm::togglePlayback, modifier = Modifier.size(72.dp)) {
-                    Icon(if (state.status == PlaybackStatus.Playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play or pause", modifier = Modifier.size(34.dp))
+                FilledIconButton(
+                    vm::togglePlayback,
+                    modifier = Modifier.size(72.dp).scale(playButtonScale)
+                ) {
+                    AnimatedContent(
+                        targetState = state.status == PlaybackStatus.Playing,
+                        transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(90)) },
+                        label = "play-pause-icon"
+                    ) { playing ->
+                        Icon(
+                            if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            "Play or pause",
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
                 }
                 IconButton(vm::next) { Icon(Icons.Default.SkipNext, "Next") }
                 IconButton(vm::cycleRepeat) {
@@ -180,7 +198,16 @@ fun NowPlayingScreen(
                     ListItem(
                         headlineContent = { Text(track.title) },
                         supportingContent = { Text(track.artist.ifBlank { "Unknown artist" }) },
-                        leadingContent = { Icon(if (track.uri == state.current?.uri) Icons.Default.VolumeUp else Icons.Default.MusicNote, null) },
+                        leadingContent = {
+                            if (track.uri == state.current?.uri) {
+                                ImuxPlayingEqIcon(
+                                    playing = state.status == PlaybackStatus.Playing,
+                                    modifier = Modifier.padding(15.dp)
+                                )
+                            } else {
+                                Icon(Icons.Default.MusicNote, null)
+                            }
+                        },
                         modifier = Modifier.clickable { vm.play(track); queueOpen = false }
                     )
                 }
