@@ -18,7 +18,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: "8.13"
+          gradle-version: "9.3.0"
 
       - run: gradle lintDebug
       - run: gradle testDebugUnitTest
