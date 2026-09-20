@@ -159,6 +159,13 @@ class PlaybackController(context: Context) : Player.Listener {
         }
     }
 
+
+    fun updateFavorite(uri: String, favorite: Boolean) {
+        val updated = knownTracks.map { if (it.uri == uri) it.copy(favorite = favorite) else it }
+        knownTracks = updated
+        publish()
+    }
+
     fun setSpeed(speed: Float) = mainScope.launch {
         awaitController()?.let {
             it.setPlaybackSpeed(speed.coerceIn(0.25f, 3f))
