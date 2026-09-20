@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collect
 
 /**
  * Keeps the logical library queue in Imux instead of copying thousands of
@@ -47,6 +48,17 @@ class PlaybackController(context: Context) : Player.Listener {
     val state = MutableStateFlow(PlaybackState())
 
     init {
+        mainScope.launch {
+            PlaybackCommandBus.commands.collect { command ->
+                when (command) {
+                    PlaybackCommandBus.NEXT -> next()
+                    PlaybackCommandBus.PREVIOUS -> previous()
+                    PlaybackCommandBus.SHUFFLE -> setShuffle(!shuffleEnabled)
+                    PlaybackCommandBus.REPEAT -> cycleRepeat()
+                }
+            }
+        }
+
         future.addListener({
             runCatching { future.get() }
                 .onSuccess { ready ->
@@ -122,7 +134,10 @@ class PlaybackController(context: Context) : Player.Listener {
 
     fun setShuffle(enabled: Boolean) {
         shuffleEnabled = enabled
-        mainScope.launch { publish() }
+        mainScope.launch {
+            controller?.shuffleModeEnabled = false
+            publish()
+        }
     }
 
     fun cycleRepeat() = mainScope.launch {
@@ -178,6 +193,7 @@ class PlaybackController(context: Context) : Player.Listener {
     }
 
     private fun loadCurrent(c: Player) {
+        c.shuffleModeEnabled = false
         val track = knownTracks.getOrNull(currentIndex) ?: return
         c.setMediaItem(mediaItem(track), 0L)
         c.prepare()
