@@ -51,9 +51,12 @@ fun NowPlayingScreen(
     var dragging by remember(state.current?.uri) { mutableStateOf(false) }
     var dragProgress by remember(state.current?.uri) { mutableFloatStateOf(0f) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
+    var artistOpen by rememberSaveable { mutableStateOf(false) }
     val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
     Box(
-        Modifier.fillMaxSize().background(
+        Modifier
+            .fillMaxSize()
+            .background(
             Brush.verticalGradient(listOf(accent.copy(alpha = 0.42f), MaterialTheme.colorScheme.background))
         )
     ) {
@@ -130,8 +133,21 @@ fun NowPlayingScreen(
                     ) {
                     Column {
                         Text(it?.title ?: "Nothing playing", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(it?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (it?.album?.isNotBlank() == true) Text(it.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val artistName = it?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song"
+                        TextButton(
+                            onClick = { if (it != null) artistOpen = true },
+                            contentPadding = PaddingValues(0.dp),
+                            enabled = it != null
+                        ) {
+                            Text(
+                                artistName,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (it?.album?.isNotBlank() == true) {
+                            Text(it.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -189,6 +205,15 @@ fun NowPlayingScreen(
                 IconButton({}) { Icon(Icons.Default.MoreVert, "More actions") }
             }
         }
+    }
+    if (artistOpen && state.current != null) {
+        PlayerArtistSheet(
+            artist = state.current.artist,
+            tracks = state.queue,
+            vm = vm,
+            app = app,
+            onDismiss = { artistOpen = false }
+        )
     }
     if (queueOpen) {
         ModalBottomSheet(onDismissRequest = { queueOpen = false }) {
