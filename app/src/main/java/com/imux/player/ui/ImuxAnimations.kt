@@ -42,6 +42,13 @@ fun ImuxPlayingEqIcon(
     playing: Boolean,
     modifier: Modifier = Modifier
 ) {
+    if (!playing) {
+        Canvas(modifier.size(22.dp)) {
+            drawEqBars(listOf(0.45f, 0.45f, 0.45f), MaterialTheme.colorScheme.primary)
+        }
+        return
+    }
+
     val transition = rememberInfiniteTransition(label = "imux-eq")
     val a by transition.animateFloat(
         initialValue = 0.35f,
@@ -62,18 +69,23 @@ fun ImuxPlayingEqIcon(
         label = "eq-c"
     )
 
-    val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.size(22.dp)) {
-        val heights = if (playing) listOf(a, b, c) else listOf(0.45f, 0.45f, 0.45f)
-        val barWidth = size.width / 7f
-        heights.forEachIndexed { index, value ->
-            val x = size.width * (0.18f + index * 0.30f)
-            drawRoundRect(
-                color = color,
-                topLeft = androidx.compose.ui.geometry.Offset(x, size.height * (1f - value)),
-                size = androidx.compose.ui.geometry.Size(barWidth, size.height * value),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth, barWidth)
-            )
-        }
+        drawEqBars(listOf(a, b, c), MaterialTheme.colorScheme.primary)
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEqBars(
+    heights: List<Float>,
+    color: androidx.compose.ui.graphics.Color
+) {
+    val barWidth = size.width / 7f
+    heights.forEachIndexed { index, value ->
+        val x = size.width * (0.18f + index * 0.30f)
+        drawRoundRect(
+            color = color,
+            topLeft = androidx.compose.ui.geometry.Offset(x, size.height * (1f - value)),
+            size = androidx.compose.ui.geometry.Size(barWidth, size.height * value),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth, barWidth)
+        )
     }
 }
