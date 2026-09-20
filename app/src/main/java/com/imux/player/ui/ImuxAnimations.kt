@@ -45,14 +45,13 @@ fun ImuxPlayingEqIcon(
     playing: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val color = MaterialTheme.colorScheme.primary
     if (!playing) {
         Canvas(modifier.size(22.dp)) {
             drawEqBars(listOf(0.45f, 0.45f, 0.45f), color)
         }
         return
     }
-
-    val color = MaterialTheme.colorScheme.primary
     val transition = rememberInfiniteTransition(label = "imux-eq")
     val a by transition.animateFloat(
         initialValue = 0.35f,
