@@ -260,7 +260,7 @@ class PlaybackController(context: Context) : Player.Listener {
                     .setTitle(track.title)
                     .setArtist(track.artist)
                     .setAlbumTitle(track.album)
-                    .apply { artwork?.let { setArtworkData(it, "image/*") } }
+                    .apply { artwork?.let { setArtworkData(it, MediaMetadata.PICTURE_TYPE_FRONT_COVER) } }
                     .build()
             )
             .build()
