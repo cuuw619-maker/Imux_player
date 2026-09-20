@@ -17,7 +17,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.imux.player.MainActivity
 
-@OptIn(UnstableApi::class)
+@UnstableApi
 class ImuxPlaybackService : MediaSessionService() {
     lateinit var player: ExoPlayer
     lateinit var session: MediaSession
