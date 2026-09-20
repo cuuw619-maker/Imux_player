@@ -3,8 +3,6 @@ package com.imux.player.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -36,13 +34,13 @@ fun ArtworkImage(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(28.dp))
+            .clip(MaterialTheme.shapes.extraLarge)
             .background(data?.accent?.copy(alpha = 0.18f) ?: MaterialTheme.colorScheme.surfaceContainerHighest),
         contentAlignment = Alignment.Center
     ) {
         val bitmap: ImageBitmap? = data?.bitmap
         if (bitmap != null) {
-            Image(bitmap, contentDescription = track?.title, modifier = Modifier.aspectRatio(1f))
+            Image(bitmap, contentDescription = track?.title, modifier = Modifier.fillMaxSize())
         } else {
             Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
