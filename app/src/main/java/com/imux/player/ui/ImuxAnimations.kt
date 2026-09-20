@@ -47,11 +47,12 @@ fun ImuxPlayingEqIcon(
 ) {
     if (!playing) {
         Canvas(modifier.size(22.dp)) {
-            drawEqBars(listOf(0.45f, 0.45f, 0.45f), MaterialTheme.colorScheme.primary)
+            drawEqBars(listOf(0.45f, 0.45f, 0.45f), color)
         }
         return
     }
 
+    val color = MaterialTheme.colorScheme.primary
     val transition = rememberInfiniteTransition(label = "imux-eq")
     val a by transition.animateFloat(
         initialValue = 0.35f,
@@ -73,7 +74,7 @@ fun ImuxPlayingEqIcon(
     )
 
     Canvas(modifier.size(22.dp)) {
-        drawEqBars(listOf(a, b, c), MaterialTheme.colorScheme.primary)
+        drawEqBars(listOf(a, b, c), color)
     }
 }
 
