@@ -12,6 +12,7 @@ import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.imux.player.MainActivity
@@ -74,7 +75,7 @@ class ImuxPlaybackService : MediaSessionService() {
             PlaybackCommandBus.send(PlaybackCommandBus.PREVIOUS)
             Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         } else {
-            Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
+            Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
         }
     }
 
