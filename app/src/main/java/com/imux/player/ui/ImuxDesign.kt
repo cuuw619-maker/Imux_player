@@ -23,9 +23,10 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconToggleButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -87,16 +88,19 @@ fun ImuxPressableIconButton(
         label = "icon-press"
     )
     if (selected) {
-        FilledTonalIconButton(
-            onClick = onClick,
+        FilledTonalIconToggleButton(
+            checked = true,
+            onCheckedChange = { onClick() },
             modifier = modifier.scale(scale),
+            shapes = IconButtonDefaults.toggleableShapes(),
             interactionSource = source,
             content = content
         )
     } else {
-        IconButton(
+        FilledTonalIconButton(
             onClick = onClick,
             modifier = modifier.scale(scale),
+            shapes = IconButtonDefaults.shapes(),
             interactionSource = source,
             content = content
         )
