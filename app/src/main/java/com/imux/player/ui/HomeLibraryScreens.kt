@@ -118,12 +118,27 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
     val selected = remember { mutableStateListOf<String>() }
     val playback by vm.playbackState.collectAsState()
     val tabs = listOf("Songs", "Albums", "Artists", "Folders", "Playlists")
-    val filtered = remember(tracks, query, tab) {
+    val albumGroups = remember(tracks) {
+        tracks.filter { it.album.isNotBlank() }
+            .groupBy { it.album.trim().lowercase() }
+            .values
+            .sortedBy { it.firstOrNull()?.album?.lowercase() ?: "" }
+    }
+    val artistGroups = remember(tracks) {
+        tracks.groupBy { it.artist.trim().ifBlank { "Unknown artist" }.lowercase() }
+            .values
+            .sortedBy { it.firstOrNull()?.artist?.lowercase() ?: "" }
+    }
+    val filtered = remember(tracks, albumGroups, artistGroups, query, tab) {
         val q = query.trim().lowercase()
         when (tab) {
             0 -> tracks.filter { q.isBlank() || it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) || it.album.lowercase().contains(q) }
-            1 -> tracks.filter { q.isBlank() || it.album.lowercase().contains(q) }.distinctBy { it.album.lowercase() }
-            2 -> tracks.filter { q.isBlank() || it.artist.lowercase().contains(q) }.distinctBy { it.artist.lowercase() }
+            1 -> albumGroups.filter {
+                q.isBlank() || it.firstOrNull()?.album?.lowercase()?.contains(q) == true
+            }.mapNotNull { it.firstOrNull() }
+            2 -> artistGroups.filter {
+                q.isBlank() || it.firstOrNull()?.artist?.lowercase()?.contains(q) == true
+            }.mapNotNull { it.firstOrNull() }
             else -> tracks
         }
     }
@@ -150,6 +165,8 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
             tabs.forEachIndexed { index, title -> Tab(selected = tab == index, onClick = { tab = index }, text = { Text(title) }) }
         }
         when (tab) {
+            2 -> ArtistList(artistGroups, query, vm, app, playback.current?.uri, openNowPlaying)
+            1 -> AlbumList(albumGroups, query, vm, app, playback.current?.uri, openNowPlaying)
             3 -> FolderList(folders)
             4 -> PlaylistList(playlists, vm)
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
@@ -223,6 +240,106 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
             Spacer(Modifier.weight(1f))
             IconButton({ vm.playQueue(tracks.filter { it.uri in selected }); openNowPlaying() }) { Icon(Icons.Default.PlayArrow, "Play selected") }
             IconButton({ selected.forEach { uri -> tracks.firstOrNull { it.uri == uri }?.let(vm::favorite) } }) { Icon(Icons.Default.Favorite, "Favorite selected") }
+        }
+    }
+}
+
+@Composable
+private fun ArtistList(
+    groups: List<List<Track>>,
+    query: String,
+    vm: MainViewModel,
+    app: ImuxApplication,
+    currentUri: String?,
+    openNowPlaying: () -> Unit
+) {
+    val filteredGroups = remember(groups, query) {
+        val q = query.trim().lowercase()
+        groups.filter {
+            q.isBlank() || it.firstOrNull()?.artist?.lowercase()?.contains(q) == true
+        }
+    }
+    LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
+        items(filteredGroups, key = { it.first().artist.lowercase() }) { group ->
+            val first = group.first()
+            ListItem(
+                headlineContent = {
+                    Text(first.artist.ifBlank { "Unknown artist" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+                supportingContent = {
+                    Text(group.size.toString() + " songs")
+                },
+                leadingContent = {
+                    ArtworkImage(first, app, Modifier.size(64.dp))
+                },
+                trailingContent = {
+                    Row {
+                        IconButton({
+                            vm.playQueue(group)
+                            openNowPlaying()
+                        }) {
+                            Icon(Icons.Default.PlayArrow, "Play artist")
+                        }
+                        IconButton({
+                            vm.playQueue(group.shuffled())
+                            openNowPlaying()
+                        }) {
+                            Icon(Icons.Default.Shuffle, "Shuffle artist")
+                        }
+                    }
+                },
+                modifier = Modifier.animateContentSize()
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlbumList(
+    groups: List<List<Track>>,
+    query: String,
+    vm: MainViewModel,
+    app: ImuxApplication,
+    currentUri: String?,
+    openNowPlaying: () -> Unit
+) {
+    val filteredGroups = remember(groups, query) {
+        val q = query.trim().lowercase()
+        groups.filter {
+            q.isBlank() || it.firstOrNull()?.album?.lowercase()?.contains(q) == true
+        }
+    }
+    LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
+        items(filteredGroups, key = { it.first().album.lowercase() }) { group ->
+            val first = group.first()
+            ListItem(
+                headlineContent = {
+                    Text(first.album.ifBlank { "Unknown album" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+                supportingContent = {
+                    Text((first.artist.ifBlank { "Unknown artist" }) + " • " + group.size + " songs")
+                },
+                leadingContent = {
+                    ArtworkImage(first, app, Modifier.size(64.dp))
+                },
+                trailingContent = {
+                    Row {
+                        IconButton({
+                            vm.playQueue(group)
+                            openNowPlaying()
+                        }) {
+                            Icon(Icons.Default.PlayArrow, "Play album")
+                        }
+                        IconButton({
+                            vm.playQueue(group.shuffled())
+                            openNowPlaying()
+                        }) {
+                            Icon(Icons.Default.Shuffle, "Shuffle album")
+                        }
+                    }
+                },
+                modifier = Modifier.animateContentSize()
+            )
         }
     }
 }
