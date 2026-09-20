@@ -191,11 +191,15 @@ private fun <T> ChoiceChips(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
     ) {
-        items(values) { value ->
+        itemsIndexed(values) { index, value ->
             ToggleButton(
                 checked = value == selected,
                 onCheckedChange = { onSelected(value) },
-                shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(),
+                shapes = when (index) {
+                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    values.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                },
                 contentPadding = ToggleButtonDefaults.ContentPadding
             ) {
                 Text(value.toString(), maxLines = 1)
