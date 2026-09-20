@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            ImuxTheme(settings.appearance, settings.dynamicColor) {
+            ImuxTheme(settings.appearance, settings.dynamicColor, settings.expressive) {
                 if (!onboardingDone) {
                     Surface(Modifier.fillMaxSize()) {
                         Column(
