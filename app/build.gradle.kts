@@ -1,4 +1,4 @@
-plugins { alias(libs.plugins.android); alias(libs.plugins.kotlin); alias(libs.plugins.compose); alias(libs.plugins.ksp) }
+plugins { alias(libs.plugins.android); alias(libs.plugins.compose); alias(libs.plugins.ksp) }
 android { namespace="com.imux.player"; compileSdk=37
  defaultConfig { applicationId="com.imux.player"; minSdk=26; targetSdk=37; versionCode=1; versionName="0.1.0" }
  compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
