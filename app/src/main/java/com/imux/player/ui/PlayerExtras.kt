@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.imux.player.ImuxApplication
 import com.imux.player.data.Track
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerArtistSheet(
     artist: String,
