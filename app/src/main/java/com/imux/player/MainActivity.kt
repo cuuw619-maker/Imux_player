@@ -21,6 +21,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.imux.player.ui.*
+import com.imux.player.data.AnimationMode
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
@@ -97,8 +98,8 @@ class MainActivity : ComponentActivity() {
                                 vm,
                                 app,
                                 playback,
-                                reducedMotion = settings.animation != com.imux.player.data.AnimationMode.Full,
-                                artworkAnimations = settings.artworkAnimations,
+                                reducedMotion = settings.animation == AnimationMode.Reduced || settings.animation == AnimationMode.Off,
+                                artworkAnimations = settings.artworkAnimations && settings.animation != AnimationMode.Off,
                                 onBack = { nowPlaying = false }
                             )
                         } else {
