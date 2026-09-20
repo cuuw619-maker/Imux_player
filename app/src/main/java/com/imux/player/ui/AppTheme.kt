@@ -11,6 +11,7 @@ import com.imux.player.data.AppearanceMode
 fun ImuxTheme(
     appearance: AppearanceMode,
     dynamicColor: Boolean,
+    expressive: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -30,7 +31,7 @@ fun ImuxTheme(
 
     MaterialTheme(
         colorScheme = finalScheme,
-        motionScheme = MotionScheme.expressive(),
+        motionScheme = if (expressive) MotionScheme.expressive() else MotionScheme.standard(),
         typography = Typography(),
         shapes = Shapes(),
         content = content
