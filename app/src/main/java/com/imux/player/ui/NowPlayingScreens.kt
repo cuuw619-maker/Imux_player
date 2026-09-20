@@ -1,38 +1,50 @@
 package com.imux.player.ui
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imux.player.ImuxApplication
-import com.imux.player.playback.PlaybackState
-import com.imux.player.playback.PlaybackStatus
-import com.imux.player.playback.RepeatMode
+import com.imux.player.data.Track
+import com.imux.player.playback.*
 import com.imux.player.rendering.ImuxVisualizer
-import kotlin.math.max
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,183 +56,222 @@ fun NowPlayingScreen(
     artworkAnimations: Boolean,
     onBack: () -> Unit
 ) {
-    val themePrimary = MaterialTheme.colorScheme.primary
-    var accent by remember { mutableStateOf(themePrimary) }
-    LaunchedEffect(state.current?.uri, themePrimary) { accent = themePrimary }
+    val primary = MaterialTheme.colorScheme.primary
+    var accent by remember { mutableStateOf(primary) }
+    LaunchedEffect(primary) { accent = primary }
     var dragging by remember(state.current?.uri) { mutableStateOf(false) }
     var dragProgress by remember(state.current?.uri) { mutableFloatStateOf(0f) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var artistOpen by rememberSaveable { mutableStateOf(false) }
     val swipeOffset = remember { Animatable(0f) }
-    val gestureScope = rememberCoroutineScope()
-    val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
+    val scope = rememberCoroutineScope()
+    val progress = if (state.durationMs > 0) {
+        (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    } else 0f
+    val motion = artworkAnimations && !reducedMotion
+
     Box(
-        Modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                translationX = swipeOffset.value
-                alpha = 1f - (kotlin.math.abs(swipeOffset.value) / 900f).coerceIn(0f, 0.12f)
-            }
-            .pointerInput(state.current?.uri, reducedMotion) {
-                if (reducedMotion) return@pointerInput
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { change, amount ->
-                        change.consume()
-                        gestureScope.launch {
-                            swipeOffset.snapTo(
-                                (swipeOffset.value + amount * 0.65f).coerceIn(-220f, 220f)
-                            )
-                        }
-                    },
-                    onDragEnd = {
-                        val offset = swipeOffset.value
-                        if (offset < -120f) vm.next() else if (offset > 120f) vm.previous()
-                        gestureScope.launch {
-                            swipeOffset.animateTo(0f, tween(220))
-                        }
-                    }                )
-            }
-            .background(
-            Brush.verticalGradient(listOf(accent.copy(alpha = 0.42f), MaterialTheme.colorScheme.background))
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                listOf(accent.copy(alpha = 0.28f), MaterialTheme.colorScheme.background)
+            )
         )
     ) {
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-        ) {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                IconButton(onBack) { Icon(Icons.Default.KeyboardArrowDown, "Close player") }
-                Spacer(Modifier.weight(1f))
-                Text("NOW PLAYING", style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.weight(1f))
-                IconButton({ queueOpen = true }) { Icon(Icons.Default.QueueMusic, "Queue") }
-            }
-            Spacer(Modifier.height(22.dp))
-            val motionEnabled = !reducedMotion && artworkAnimations
-            val artworkScale by animateFloatAsState(
-                targetValue = if (state.status == PlaybackStatus.Playing) 1.018f else 1f,
-                animationSpec = tween(if (reducedMotion) 0 else 650),
-                label = "artwork-scale"
+        Column(Modifier.fillMaxSize()) {
+            CenterAlignedTopAppBar(
+                title = { Text("Now playing", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.KeyboardArrowDown, "Close player")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { queueOpen = true }) {
+                        Icon(Icons.Default.QueueMusic, "Queue")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                modifier = Modifier.statusBarsPadding()
             )
-            val haloRotation = rememberImuxRotation(motionEnabled && state.status == PlaybackStatus.Playing)
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .padding(horizontal = 8.dp)
+
+            Column(
+                Modifier.fillMaxSize().weight(1f).verticalScroll(rememberScrollState())
+                    .navigationBarsPadding().padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (motionEnabled && state.status == PlaybackStatus.Playing) {
-                    Canvas(
-                        Modifier
-                            .matchParentSize()
-                            .graphicsLayer { rotationZ = haloRotation }
+                Spacer(Modifier.height(10.dp))
+                BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                    val artSize = maxWidth.coerceAtMost(390.dp)
+                    val artScale by animateFloatAsState(
+                        if (state.status == PlaybackStatus.Playing && motion) 1.018f else 1f,
+                        spring(dampingRatio = 0.82f, stiffness = 280f),
+                        label = "art-scale"
+                    )
+                    Box(
+                        Modifier.size(artSize).align(Alignment.Center)
+                            .graphicsLayer {
+                                translationX = swipeOffset.value
+                                alpha = 1f - (abs(swipeOffset.value) / 700f).coerceIn(0f, 0.16f)
+                            }
+                            .pointerInput(state.current?.uri, reducedMotion) {
+                                if (reducedMotion) return@pointerInput
+                                detectHorizontalDragGestures(
+                                    onHorizontalDrag = { change, amount ->
+                                        change.consume()
+                                        scope.launch {
+                                            swipeOffset.snapTo(
+                                                (swipeOffset.value + amount * 0.72f).coerceIn(-180f, 180f)
+                                            )
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        val distance = swipeOffset.value
+                                        if (distance < -110f) vm.next()
+                                        if (distance > 110f) vm.previous()
+                                        scope.launch {
+                                            swipeOffset.animateTo(
+                                                0f,
+                                                spring(dampingRatio = 0.82f, stiffness = 420f)
+                                            )
+                                        }
+                                    }
+                                )
+                            }
                     ) {
-                        drawCircle(
-                            color = accent.copy(alpha = 0.12f),
-                            radius = size.minDimension * 0.49f
-                        )
+                        Surface(
+                            Modifier.fillMaxSize().scale(artScale),
+                            shape = RoundedCornerShape(32.dp),
+                            tonalElevation = 8.dp,
+                            shadowElevation = 10.dp
+                        ) {
+                            ArtworkImage(
+                                state.current,
+                                app,
+                                Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp))
+                                    .pointerInput(state.current?.uri) {
+                                        detectTapGestures(onDoubleTap = { vm.togglePlayback() })
+                                    }
+                            ) { extracted -> accent = extracted }
+                        }
                     }
                 }
-                ArtworkImage(
-                    state.current,
-                    app,
-                    Modifier
-                        .matchParentSize()
-                        .scale(artworkScale)
-                        .pointerInput(state.current?.uri) {
-                            detectTapGestures(
-                                onDoubleTap = { vm.togglePlayback() }
-                            )
-                        }
-                ) { accent = it }
-            }
-            Spacer(Modifier.height(24.dp))
-            Column(Modifier.fillMaxWidth()) {
+
+                Spacer(Modifier.height(24.dp))
                 AnimatedContent(
-                        targetState = state.current,
-                        transitionSpec = {
-                            if (artworkAnimations && !reducedMotion) {
-                                (fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) togetherWith
-                                    fadeOut(animationSpec = androidx.compose.animation.core.tween(160)))
-                            } else EnterTransition.None togetherWith ExitTransition.None
-                        },
-                        label = "track-change"
+                    targetState = state.current,
+                    transitionSpec = {
+                        if (motion) {
+                            (fadeIn(tween(220)) + scaleIn(0.97f, tween(240))) togetherWith
+                                (fadeOut(tween(150)) + scaleOut(0.98f, tween(160)))
+                        } else EnterTransition.None togetherWith ExitTransition.None
+                    },
+                    label = "track-details"
+                ) { track ->
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    Column {
-                        Text(it?.title ?: "Nothing playing", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val artistName = it?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song"
+                        Text(
+                            track?.title ?: "Nothing playing",
+                            style = MaterialTheme.typography.headlineSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
                         TextButton(
-                            onClick = { if (it != null) artistOpen = true },
-                            contentPadding = PaddingValues(0.dp),
-                            enabled = it != null
+                            onClick = { if (track != null) artistOpen = true },
+                            enabled = track != null
                         ) {
                             Text(
-                                artistName,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                track?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song",
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
-                        if (it?.album?.isNotBlank() == true) {
-                            Text(it.album, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!track?.album.isNullOrBlank()) {
+                            Text(
+                                track?.album.orEmpty(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
-            }
-            Slider(
-                value = if (dragging) dragProgress else progress.coerceIn(0f, 1f),
-                onValueChange = {
-                    dragging = true
-                    dragProgress = it
-                },
-                onValueChangeFinished = {
-                    dragging = false
-                    if (state.durationMs > 0) vm.seekTo((dragProgress * state.durationMs).toLong())
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatTime(state.positionMs))
-                Text("-\${formatTime(max(0L, state.durationMs - state.positionMs))}")
-            }
-            if (state.status == PlaybackStatus.Playing && !reducedMotion) {
-                ImuxVisualizer(progress, true, accent, reducedMotion = reducedMotion)
-            }
-            val playButtonScale by animateFloatAsState(
-                targetValue = if (state.status == PlaybackStatus.Playing && motionEnabled) 1.04f else 1f,
-                animationSpec = tween(320),
-                label = "play-button-scale"
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                IconButton({ vm.shuffle(!state.shuffleEnabled) }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (state.shuffleEnabled) accent else LocalContentColor.current) }
-                IconButton(vm::previous) { Icon(Icons.Default.SkipPrevious, "Previous") }
-                FilledIconButton(
-                    vm::togglePlayback,
-                    modifier = Modifier.size(72.dp).scale(playButtonScale)
+
+                Spacer(Modifier.height(14.dp))
+                Slider(
+                    value = if (dragging) dragProgress else progress,
+                    onValueChange = { dragging = true; dragProgress = it },
+                    onValueChangeFinished = {
+                        dragging = false
+                        if (state.durationMs > 0) vm.seekTo((dragProgress * state.durationMs).toLong())
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(formatTime(state.positionMs), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("-"+formatTime(max(0L, state.durationMs - state.positionMs)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                if (state.status == PlaybackStatus.Playing && !reducedMotion) {
+                    Spacer(Modifier.height(8.dp))
+                    ImuxVisualizer(progress, true, accent, reducedMotion = reducedMotion)
+                }
+
+                Spacer(Modifier.height(12.dp))
+                ImuxPlaybackControls(
+                    playing = state.status == PlaybackStatus.Playing,
+                    onPrevious = vm::previous,
+                    onPlayPause = vm::togglePlayback,
+                    onNext = vm::next
+                )
+
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AnimatedContent(
-                        targetState = state.status == PlaybackStatus.Playing,
-                        transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(90)) },
-                        label = "play-pause-icon"
-                    ) { playing ->
+                    ImuxPressableIconButton(
+                        onClick = { state.current?.let(vm::favorite) },
+                        selected = state.current?.favorite == true
+                    ) {
                         Icon(
-                            if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            "Play or pause",
-                            modifier = Modifier.size(34.dp)
+                            if (state.current?.favorite == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            "Favorite"
                         )
                     }
+                    ImuxPressableIconButton(
+                        onClick = { vm.shuffle(!state.shuffleEnabled) },
+                        selected = state.shuffleEnabled
+                    ) { Icon(Icons.Default.Shuffle, "Shuffle") }
+                    AssistChip(
+                        onClick = { queueOpen = true },
+                        label = { Text("Queue "+state.queue.size) },
+                        leadingIcon = { Icon(Icons.Default.QueueMusic, null) }
+                    )
+                    ImuxPressableIconButton(
+                        onClick = vm::cycleRepeat,
+                        selected = state.repeatMode != RepeatMode.Off
+                    ) {
+                        Icon(
+                            if (state.repeatMode == RepeatMode.One) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                            "Repeat"
+                        )
+                    }
+                    ImuxPressableIconButton(onClick = {}) {
+                        Icon(Icons.Default.MoreVert, "More")
+                    }
                 }
-                IconButton(vm::next) { Icon(Icons.Default.SkipNext, "Next") }
-                IconButton(vm::cycleRepeat) {
-                    Icon(if (state.repeatMode == RepeatMode.One) Icons.Default.RepeatOne else Icons.Default.Repeat, "Repeat", tint = if (state.repeatMode != RepeatMode.Off) accent else LocalContentColor.current)
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                IconButton({ state.current?.let(vm::favorite) }) { Icon(Icons.Default.Favorite, "Favorite") }
-                AssistChip(onClick = { queueOpen = true }, label = { Text("Queue \${state.queue.size}") }, leadingIcon = { Icon(Icons.Default.QueueMusic, null) })
-                IconButton({}) { Icon(Icons.Default.MoreVert, "More actions") }
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
+
     if (artistOpen && state.current != null) {
         PlayerArtistSheet(
             artist = state.current.artist,
@@ -232,24 +283,50 @@ fun NowPlayingScreen(
     }
     if (queueOpen) {
         ModalBottomSheet(onDismissRequest = { queueOpen = false }) {
-            Text("Queue", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(20.dp))
+            Text(
+                "Queue",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+            )
             LazyColumn(contentPadding = PaddingValues(bottom = 40.dp)) {
                 items(state.queue, key = { it.uri }) { track ->
-                    ListItem(
-                        headlineContent = { Text(track.title) },
-                        supportingContent = { Text(track.artist.ifBlank { "Unknown artist" }) },
-                        leadingContent = {
+                    Surface(
+                        onClick = { vm.play(track); queueOpen = false },
+                        color = if (track.uri == state.current?.uri)
+                            MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             if (track.uri == state.current?.uri) {
                                 ImuxPlayingEqIcon(
-                                    playing = state.status == PlaybackStatus.Playing,
-                                    modifier = Modifier.padding(15.dp)
+                                    state.status == PlaybackStatus.Playing,
+                                    Modifier.size(28.dp)
                                 )
                             } else {
-                                Icon(Icons.Default.MusicNote, null)
+                                Icon(Icons.Default.MusicNote, null, Modifier.size(28.dp))
                             }
-                        },
-                        modifier = Modifier.clickable { vm.play(track); queueOpen = false }
-                    )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    track.artist.ifBlank { "Unknown artist" },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Text(
+                                formatTime(track.duration),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -257,19 +334,31 @@ fun NowPlayingScreen(
 }
 
 @Composable
-fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean, onOpen: () -> Unit, vm: MainViewModel, animationsEnabled: Boolean = true) {
-    AnimatedVisibility(
-        visible = state.current != null,
-        enter = if (animationsEnabled) slideInVertically(initialOffsetY = { it }) + fadeIn() else EnterTransition.None,
-        exit = if (animationsEnabled) slideOutVertically(targetOffsetY = { it }) + fadeOut() else ExitTransition.None
-    ) {
+fun MiniPlayer(
+    state: PlaybackState,
+    app: ImuxApplication,
+    showProgress: Boolean,
+    onOpen: () -> Unit,
+    vm: MainViewModel,
+    animationsEnabled: Boolean = true
+) {
+    AnimatedContent(
+        targetState = state.current != null,
+        transitionSpec = {
+            if (animationsEnabled) fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+            else EnterTransition.None togetherWith ExitTransition.None
+        },
+        label = "mini-visibility"
+    ) { visible ->
+        if (!visible) return@AnimatedContent
+        val progress = if (state.durationMs > 0)
+            (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
         Surface(
             onClick = onOpen,
-            tonalElevation = 4.dp,
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 3.dp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                 .pointerInput(state.current?.uri) {
                     var totalDrag = 0f
                     detectHorizontalDragGestures(
@@ -278,7 +367,7 @@ fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean
                             totalDrag += amount
                         },
                         onDragEnd = {
-                            if (kotlin.math.abs(totalDrag) >= 100f) {
+                            if (abs(totalDrag) >= 100f) {
                                 if (totalDrag < 0f) vm.next() else vm.previous()
                             }
                         }
@@ -287,16 +376,39 @@ fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean
         ) {
             Column {
                 if (showProgress && state.durationMs > 0) {
-                    LinearProgressIndicator({ (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) }, Modifier.fillMaxWidth().height(3.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(3.dp)
+                    )
                 }
-                Row(Modifier.padding(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    ArtworkImage(state.current, app, Modifier.size(52.dp))
+                Row(Modifier.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ArtworkImage(state.current, app, Modifier.size(54.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        AnimatedContent(targetState = state.current?.title.orEmpty(), label = "mini-title") { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        Text(state.current?.artist?.ifBlank { "Unknown artist" }.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            state.current?.title.orEmpty(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            state.current?.artist?.ifBlank { "Unknown artist" }.orEmpty(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
-                    IconButton(vm::togglePlayback) { Icon(if (state.status == PlaybackStatus.Playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play or pause") }
+                    FilledTonalIconButton(
+                        onClick = vm::togglePlayback,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            if (state.status == PlaybackStatus.Playing) Icons.Default.Pause
+                            else Icons.Default.PlayArrow,
+                            "Play or pause"
+                        )
+                    }
                 }
             }
         }
