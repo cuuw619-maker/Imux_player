@@ -30,6 +30,7 @@ fun ImuxTheme(
 
     MaterialTheme(
         colorScheme = finalScheme,
+        motionScheme = MotionScheme.expressive(),
         typography = Typography(),
         shapes = Shapes(),
         content = content
