@@ -189,11 +189,11 @@ fun NowPlayingScreen(
 }
 
 @Composable
-fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean, onOpen: () -> Unit, vm: MainViewModel) {
+fun MiniPlayer(state: PlaybackState, app: ImuxApplication, showProgress: Boolean, onOpen: () -> Unit, vm: MainViewModel, animationsEnabled: Boolean = true) {
     AnimatedVisibility(
         visible = state.current != null,
-        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+        enter = if (animationsEnabled) slideInVertically(initialOffsetY = { it }) + fadeIn() else EnterTransition.None,
+        exit = if (animationsEnabled) slideOutVertically(targetOffsetY = { it }) + fadeOut() else ExitTransition.None
     ) {
         Surface(
             onClick = onOpen,
