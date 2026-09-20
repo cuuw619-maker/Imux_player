@@ -4,6 +4,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -23,44 +25,95 @@ enum class AppDestination { Home, Library, Settings }
 fun HomeScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Unit) {
     val tracks by vm.tracks.collectAsState()
     val playlists by vm.playlists.collectAsState()
-    val recent = remember(tracks) { tracks.sortedByDescending { it.lastPlayed ?: 0L } }
-    val added = remember(tracks) { tracks.sortedByDescending { it.addedAt } }
     val playback by vm.playbackState.collectAsState()
+    val recent = remember(tracks) { tracks.filter { it.lastPlayed != null }.sortedByDescending { it.lastPlayed } }
+    val added = remember(tracks) { tracks.sortedByDescending { it.addedAt } }
+    val favorites = remember(tracks) { tracks.filter { it.favorite } }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().animateContentSize(),
-        contentPadding = PaddingValues(bottom = 120.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 140.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
                 Text("Imux", style = MaterialTheme.typography.displaySmall)
-                Text("Your music, locally.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (tracks.isEmpty()) "Add your music folder to get started"
+                    else tracks.size.toString() + " songs in your library",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-        item {
-            ImuxAnimatedPresence(visible = recent.isNotEmpty()) {
-                TrackSection("Continue listening", recent.take(12), vm, app, openNowPlaying, playback.current?.uri)
+
+        if (playback.current != null) {
+            item {
+                ImuxTonalCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ArtworkImage(playback.current, app, Modifier.size(84.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Continue listening", style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary)
+                            Text(playback.current.title, style = MaterialTheme.typography.titleLarge,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(playback.current.artist.ifBlank { "Unknown artist" },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(8.dp))
+                            FilledTonalButton(onClick = openNowPlaying) {
+                                Icon(
+                                    if (playback.status == com.imux.player.playback.PlaybackStatus.Playing)
+                                        Icons.Default.GraphicEq else Icons.Default.PlayArrow,
+                                    null
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (playback.status == com.imux.player.playback.PlaybackStatus.Playing) "Open player" else "Resume")
+                            }
+                        }
+                    }
+                }
             }
         }
-        item {
-            ImuxAnimatedPresence(visible = added.isNotEmpty()) {
-                TrackSection("Recently added", added.take(12), vm, app, openNowPlaying, playback.current?.uri)
+
+        if (recent.isNotEmpty()) {
+            item {
+                ImuxAnimatedPresence(visible = true) {
+                    TrackSection("Recently played", recent.take(12), vm, app, openNowPlaying, playback.current?.uri)
+                }
             }
         }
-        item {
-            ImuxAnimatedPresence(visible = tracks.any { it.favorite }) {
-                TrackSection("Favorites", tracks.filter { it.favorite }.take(12), vm, app, openNowPlaying, playback.current?.uri)
+        if (added.isNotEmpty()) {
+            item {
+                ImuxAnimatedPresence(visible = true) {
+                    TrackSection("Recently added", added.take(12), vm, app, openNowPlaying, playback.current?.uri)
+                }
             }
         }
-        item {
-            if (playlists.isNotEmpty()) {
+        if (favorites.isNotEmpty()) {
+            item {
+                ImuxAnimatedPresence(visible = true) {
+                    TrackSection("Favorites", favorites.take(12), vm, app, openNowPlaying, playback.current?.uri)
+                }
+            }
+        }
+        if (playlists.isNotEmpty()) {
+            item {
                 Column {
-                    Text("Playlists", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
-                    Spacer(Modifier.height(10.dp))
-                    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ImuxSectionHeader("Playlists")
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         items(playlists, key = { it.id }) { playlist ->
-                            AssistChip(
-                                onClick = { vm.playPlaylist(playlist.id) },
+                            FilterChip(
+                                selected = false,
+                                onClick = { vm.playPlaylist(playlist.id); openNowPlaying() },
                                 label = { Text(playlist.name) },
                                 leadingIcon = { Icon(Icons.Default.PlaylistPlay, null) }
                             )
@@ -73,33 +126,65 @@ fun HomeScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Un
 }
 
 @Composable
-private fun TrackSection(title: String, tracks: List<Track>, vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Unit, currentUri: String?) {
+private fun TrackSection(
+    title: String,
+    tracks: List<Track>,
+    vm: MainViewModel,
+    app: ImuxApplication,
+    openNowPlaying: () -> Unit,
+    currentUri: String?
+) {
     if (tracks.isEmpty()) return
     Column {
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+        ImuxSectionHeader(title)
         Spacer(Modifier.height(10.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             items(tracks, key = { it.uri }) { track ->
-                Column(Modifier.width(148.dp)) {
-                    Box {
-                        ArtworkImage(track, app, Modifier.fillMaxWidth().aspectRatio(1f))
-                        if (track.uri == currentUri) {
-                            Surface(
-                                shape = MaterialTheme.shapes.large,
-                                tonalElevation = 3.dp,
-                                modifier = Modifier.padding(8.dp)
-                            ) {
-                                ImuxPlayingEqIcon(
-                                    playing = true,
-                                    modifier = Modifier.padding(5.dp)
-                                )
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 1.dp,
+                    modifier = Modifier.width(160.dp)
+                ) {
+                    Column(Modifier.padding(8.dp)) {
+                        Box {
+                            ArtworkImage(track, app, Modifier.fillMaxWidth().aspectRatio(1f))
+                            if (track.uri == currentUri) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                                ) {
+                                    ImuxPlayingEqIcon(
+                                        playing = true,
+                                        modifier = Modifier.padding(7.dp)
+                                    )
+                                }
                             }
                         }
+                        Spacer(Modifier.height(9.dp))
+                        Text(
+                            track.title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            track.artist.ifBlank { "Unknown artist" },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        TextButton(
+                            onClick = { vm.play(track); openNowPlaying() },
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) { Text("Play") }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                    Text(track.artist.ifBlank { "Unknown artist" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { vm.play(track); openNowPlaying() }, contentPadding = PaddingValues(0.dp)) { Text("Play") }
                 }
             }
         }
