@@ -161,7 +161,12 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
                                 if (selecting) {
                                     if (isSelected) selected.remove(track.uri) else selected.add(track.uri)
                                 } else {
-                                    vm.play(track)
+                                    val group = when (tab) {
+                                        1 -> tracks.filter { it.album.equals(track.album, ignoreCase = true) }
+                                        2 -> tracks.filter { it.artist.equals(track.artist, ignoreCase = true) }
+                                        else -> emptyList()
+                                    }
+                                    if (group.isNotEmpty()) vm.playQueue(group) else vm.play(track)
                                     openNowPlaying()
                                 }
                             },
@@ -177,7 +182,16 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
                                 else track.title
                             )
                         },
-                        supportingContent = { Text(if (tab == 0) track.artist.ifBlank { "Unknown artist" } else track.title) },
+                        supportingContent = {
+                            when (tab) {
+                                0 -> Text(track.artist.ifBlank { "Unknown artist" })
+                                1 -> Text(track.artist.ifBlank { "Unknown artist" })
+                                2 -> Text(
+                                    "$" + "{tracks.count { it.artist.equals(track.artist, ignoreCase = true) }} songs"
+                                )
+                                else -> Text(track.title)
+                            }
+                        },
                         leadingContent = {
                             Box {
                                 ArtworkImage(track, app, Modifier.size(52.dp))
