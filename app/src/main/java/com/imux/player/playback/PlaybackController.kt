@@ -67,11 +67,14 @@ class PlaybackController(context: Context) : Player.Listener {
     }
 
     fun play(track: Track, queue: List<Track> = listOf(track)) {
-        val cleanQueue = queue.distinctBy { it.uri }
-        knownTracks = cleanQueue
-        currentIndex = cleanQueue.indexOfFirst { it.uri == track.uri }.coerceAtLeast(0)
-
+        // De-duplication of a large library is CPU work; never do it on the UI looper.
         mainScope.launch {
+            val cleanQueue = withContext(Dispatchers.Default) {
+                queue.distinctBy { it.uri }
+            }
+            knownTracks = cleanQueue
+            currentIndex = cleanQueue.indexOfFirst { it.uri == track.uri }.coerceAtLeast(0)
+
             val c = awaitController() ?: return@launch
             loadCurrent(c)
         }
