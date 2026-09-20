@@ -123,8 +123,8 @@ class MainActivity : ComponentActivity() {
                                 vm,
                                 app,
                                 playback,
-                                reducedMotion = settings.animation == AnimationMode.Reduced || settings.animation == AnimationMode.Off,
-                                artworkAnimations = settings.artworkAnimations && settings.animation != AnimationMode.Off,
+                                reducedMotion = settings.animation == AnimationMode.Reduced || settings.animation == AnimationMode.Off || !settings.expressive,
+                                artworkAnimations = settings.artworkAnimations && settings.animation != AnimationMode.Off && settings.expressive,
                                 onBack = { nowPlaying = false }
                             )
                         } else {
