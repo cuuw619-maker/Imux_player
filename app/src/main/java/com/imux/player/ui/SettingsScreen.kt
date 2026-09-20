@@ -200,7 +200,6 @@ private fun <T> ChoiceChips(
                     values.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
-                contentPadding = ToggleButtonDefaults.ContentPadding
             ) {
                 Text(value.toString(), maxLines = 1)
             }
