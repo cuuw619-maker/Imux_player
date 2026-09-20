@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -15,6 +16,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -88,4 +90,22 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEqBars(
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth, barWidth)
         )
     }
+}
+
+@Composable
+fun rememberImuxRotation(enabled: Boolean): Float {
+    val rotation = remember { Animatable(0f) }
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            rotation.snapTo(0f)
+            return@LaunchedEffect
+        }
+        while (true) {
+            rotation.animateTo(
+                targetValue = rotation.value + 360f,
+                animationSpec = tween(9000)
+            )
+        }
+    }
+    return rotation.value % 360f
 }
