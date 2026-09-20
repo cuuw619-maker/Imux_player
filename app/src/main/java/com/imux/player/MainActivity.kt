@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
                     AnimatedContent(
                         targetState = nowPlaying,
                         transitionSpec = {
-                            if (settings.animation == AnimationMode.Off) {
+                            if (settings.animation == AnimationMode.Off || !settings.expressive) {
                                 EnterTransition.None togetherWith ExitTransition.None
                             } else {
                                 (fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) + scaleIn(initialScale = 0.985f, animationSpec = androidx.compose.animation.core.tween(260))) togetherWith
@@ -142,7 +142,7 @@ class MainActivity : ComponentActivity() {
                                             settings.showPlaybackProgress,
                                             { nowPlaying = true },
                                             vm,
-                                            animationsEnabled = settings.animation != AnimationMode.Off
+                                            animationsEnabled = settings.animation != AnimationMode.Off && settings.expressive
                                         )
                                         NavigationBar {
                                             NavigationBarItem(
