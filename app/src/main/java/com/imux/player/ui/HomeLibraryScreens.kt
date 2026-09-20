@@ -1,5 +1,10 @@
 package com.imux.player.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.animation.animateContentSize
@@ -249,12 +254,19 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
         ScrollableTabRow(selectedTabIndex = tab, edgePadding = 16.dp) {
             tabs.forEachIndexed { index, title -> Tab(selected = tab == index, onClick = { tab = index }, text = { Text(title) }) }
         }
-        when (tab) {
-            2 -> ArtistList(artistGroups, query, vm, app, playback.current?.uri, openNowPlaying)
-            1 -> AlbumList(albumGroups, query, vm, app, playback.current?.uri, openNowPlaying)
-            3 -> FolderList(folders)
-            4 -> PlaylistList(playlists, vm)
-            else -> LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
+        AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                fadeIn(tween(160)) togetherWith fadeOut(tween(100))
+            },
+            label = "library-tab"
+        ) { selectedTab ->
+            when (selectedTab) {
+                2 -> ArtistList(artistGroups, query, vm, app, openNowPlaying)
+                1 -> AlbumList(albumGroups, query, vm, app, openNowPlaying)
+                3 -> FolderList(folders)
+                4 -> PlaylistList(playlists, vm)
+                else -> LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
                 items(filtered, key = { it.uri }) { track ->
                     val isSelected = track.uri in selected
                     ListItem(
@@ -318,6 +330,7 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
                 }
             }
         }
+        }
     }
     if (selecting && selected.isNotEmpty()) {
         BottomAppBar {
@@ -335,7 +348,6 @@ private fun ArtistList(
     query: String,
     vm: MainViewModel,
     app: ImuxApplication,
-    currentUri: String?,
     openNowPlaying: () -> Unit
 ) {
     val filteredGroups = remember(groups, query) {
@@ -373,7 +385,7 @@ private fun ArtistList(
                         }
                     }
                 },
-                modifier = Modifier.animateContentSize()
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp).animateContentSize()
             )
         }
     }
