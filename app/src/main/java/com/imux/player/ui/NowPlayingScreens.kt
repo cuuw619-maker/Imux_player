@@ -193,8 +193,8 @@ fun NowPlayingScreen(
                     targetState = state.current,
                     transitionSpec = {
                         if (motion) {
-                            (fadeIn(tween(220)) + scaleIn(0.97f, tween(240))) togetherWith
-                                (fadeOut(tween(150)) + scaleOut(0.98f, tween(160)))
+                            (fadeIn(tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(240))) togetherWith
+                                (fadeOut(tween(150)) + scaleOut(targetScale = 0.98f, animationSpec = tween(160)))
                         } else EnterTransition.None togetherWith ExitTransition.None
                     },
                     label = "track-details"
@@ -361,6 +361,8 @@ fun NowPlayingScreen(
             }
         }
     }
+}
+
 }
 
 @Composable
