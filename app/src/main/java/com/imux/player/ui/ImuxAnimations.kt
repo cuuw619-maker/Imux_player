@@ -62,8 +62,8 @@ fun ImuxPlayingEqIcon(
         label = "eq-c"
     )
 
+    val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.size(22.dp)) {
-        val color = MaterialTheme.colorScheme.primary
         val heights = if (playing) listOf(a, b, c) else listOf(0.45f, 0.45f, 0.45f)
         val barWidth = size.width / 7f
         heights.forEachIndexed { index, value ->
