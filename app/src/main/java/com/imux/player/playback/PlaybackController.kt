@@ -16,66 +16,112 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+/**
+ * Keeps the logical library queue in Imux instead of copying thousands of
+ * MediaItems into Media3. Only the currently playing item is loaded into the
+ * MediaController, preventing large queue mutations from blocking the UI.
+ */
 class PlaybackController(context: Context) : Player.Listener {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val appContext = context.applicationContext
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     private val future: ListenableFuture<MediaController> = MediaController.Builder(
-        context,
-        SessionToken(context, ComponentName(context, ImuxPlaybackService::class.java))
+        appContext,
+        SessionToken(appContext, ComponentName(appContext, ImuxPlaybackService::class.java))
     ).buildAsync()
 
     private var controller: MediaController? = null
     private var ticker: Job? = null
-    private var knownTracks: List<Track> = emptyList()
+
+    @Volatile private var knownTracks: List<Track> = emptyList()
+    @Volatile private var currentIndex = -1
+    @Volatile private var shuffleEnabled = false
 
     val state = MutableStateFlow(PlaybackState())
 
     init {
         future.addListener({
-            runCatching { future.get() }.onSuccess { ready ->
-                scope.launch {
-                    controller = ready
-                    ready.addListener(this@PlaybackController)
-                    publish()
-                    startTicker()
+            runCatching { future.get() }
+                .onSuccess { ready ->
+                    mainScope.launch {
+                        controller = ready
+                        ready.addListener(this@PlaybackController)
+                        publish()
+                        updateTicker()
+                    }
                 }
-            }.onFailure { error ->
-                state.value = state.value.copy(status = PlaybackStatus.Error, error = error.message)
-            }
+                .onFailure { error ->
+                    state.value = state.value.copy(
+                        status = PlaybackStatus.Error,
+                        error = error.message
+                    )
+                }
         }, MoreExecutors.directExecutor())
     }
 
     fun play(track: Track, queue: List<Track> = listOf(track)) {
-        scope.launch {
-            knownTracks = queue.distinctBy { it.uri }
+        val cleanQueue = queue.distinctBy { it.uri }
+        knownTracks = cleanQueue
+        currentIndex = cleanQueue.indexOfFirst { it.uri == track.uri }.coerceAtLeast(0)
+
+        mainScope.launch {
             val c = awaitController() ?: return@launch
-            val items = knownTracks.map(::mediaItem)
-            val index = knownTracks.indexOfFirst { it.uri == track.uri }.coerceAtLeast(0)
-            c.setMediaItems(items, index, 0L)
-            c.prepare()
-            c.play()
+            loadCurrent(c)
+        }
+    }
+
+    fun toggle() = mainScope.launch {
+        awaitController()?.let { c ->
+            if (c.isPlaying) c.pause() else c.play()
+            publish()
+            updateTicker()
+        }
+    }
+
+    fun next() = mainScope.launch {
+        val c = awaitController() ?: return@launch
+        if (advanceIndex(1)) {
+            loadCurrent(c)
+        } else {
+            c.pause()
+            c.seekTo(0L)
+            publish()
+            updateTicker()
+        }
+    }
+
+    fun previous() = mainScope.launch {
+        val c = awaitController() ?: return@launch
+        if (c.currentPosition > 5_000L) {
+            c.seekTo(0L)
+            publish()
+        } else if (advanceIndex(-1)) {
+            loadCurrent(c)
+        } else {
+            c.seekTo(0L)
             publish()
         }
     }
 
-    fun toggle() = scope.launch {
-        awaitController()?.let { if (it.isPlaying) it.pause() else it.play() }
+    fun seekTo(positionMs: Long) = mainScope.launch {
+        awaitController()?.let {
+            it.seekTo(positionMs.coerceAtLeast(0L))
+            publish()
+        }
     }
 
-    fun next() = scope.launch { awaitController()?.seekToNextMediaItem() }
-    fun previous() = scope.launch { awaitController()?.seekToPreviousMediaItem() }
-
-    fun seekTo(positionMs: Long) = scope.launch { awaitController()?.seekTo(positionMs) }
-
-    fun setShuffle(enabled: Boolean) = scope.launch {
-        awaitController()?.setShuffleModeEnabled(enabled)
-        publish()
+    fun setShuffle(enabled: Boolean) {
+        shuffleEnabled = enabled
+        mainScope.launch { publish() }
     }
 
-    fun cycleRepeat() = scope.launch {
+    fun cycleRepeat() = mainScope.launch {
         val c = awaitController() ?: return@launch
         c.repeatMode = when (c.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
@@ -85,34 +131,82 @@ class PlaybackController(context: Context) : Player.Listener {
         publish()
     }
 
-    fun setRepeat(mode: RepeatMode) = scope.launch {
-        awaitController()?.repeatMode = mode.toMedia3()
-        publish()
-    }
-
-    fun setSpeed(speed: Float) = scope.launch {
-        awaitController()?.setPlaybackSpeed(speed)
-        publish()
-    }
-
-    fun applySettings(settings: PlayerSettings) = scope.launch {
-        val c = awaitController() ?: return@launch
-        c.shuffleModeEnabled = settings.shuffleDefault
-        c.repeatMode = when (settings.repeatDefault) {
-            "ALL" -> Player.REPEAT_MODE_ALL
-            "ONE" -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
+    fun setRepeat(mode: RepeatMode) = mainScope.launch {
+        awaitController()?.let {
+            it.repeatMode = mode.toMedia3()
+            publish()
         }
-        c.setPlaybackSpeed(settings.playbackSpeed)
-        publish()
+    }
+
+    fun setSpeed(speed: Float) = mainScope.launch {
+        awaitController()?.let {
+            it.setPlaybackSpeed(speed.coerceIn(0.25f, 3f))
+            publish()
+        }
+    }
+
+    fun applySettings(settings: PlayerSettings) {
+        shuffleEnabled = settings.shuffleDefault
+        mainScope.launch {
+            val c = awaitController() ?: return@launch
+            c.repeatMode = when (settings.repeatDefault) {
+                "ALL" -> Player.REPEAT_MODE_ALL
+                "ONE" -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+            }
+            c.setPlaybackSpeed(settings.playbackSpeed.coerceIn(0.25f, 3f))
+            publish()
+        }
     }
 
     private suspend fun awaitController(): MediaController? {
         controller?.let { return it }
-        return runCatching { future.get() }.getOrNull()?.also { ready ->
-            controller = ready
-            ready.addListener(this@PlaybackController)
+        // Never call future.get() on the main thread.
+        val ready = withContext(Dispatchers.IO) {
+            runCatching { future.get() }.getOrNull()
+        } ?: return null
+        controller = ready
+        ready.addListener(this@PlaybackController)
+        return ready
+    }
+
+    private fun loadCurrent(c: MediaController) {
+        val track = knownTracks.getOrNull(currentIndex) ?: return
+        c.setMediaItem(mediaItem(track), 0L)
+        c.prepare()
+        c.play()
+        publish()
+        updateTicker()
+    }
+
+    private fun advanceIndex(direction: Int): Boolean {
+        val size = knownTracks.size
+        if (size == 0) return false
+
+        if (shuffleEnabled && size > 1) {
+            var candidate = currentIndex
+            repeat(8) {
+                val next = (0 until size).random()
+                if (next != currentIndex) candidate = next
+            }
+            if (candidate != currentIndex) {
+                currentIndex = candidate
+                return true
+            }
         }
+
+        val next = currentIndex + direction
+        if (next in knownTracks.indices) {
+            currentIndex = next
+            return true
+        }
+
+        if (controller?.repeatMode == Player.REPEAT_MODE_ALL) {
+            currentIndex = if (direction > 0) 0 else size - 1
+            return true
+        }
+
+        return false
     }
 
     private fun mediaItem(track: Track): MediaItem =
@@ -128,19 +222,27 @@ class PlaybackController(context: Context) : Player.Listener {
             )
             .build()
 
-    private fun startTicker() {
-        if (ticker != null) return
-        ticker = scope.launch {
-            while (true) {
+    private fun updateTicker() {
+        val c = controller
+        if (c == null || !c.isPlaying) {
+            ticker?.cancel()
+            ticker = null
+            return
+        }
+        if (ticker?.isActive == true) return
+
+        ticker = mainScope.launch {
+            while (controller?.isPlaying == true) {
                 publish()
-                delay(250)
+                delay(500L)
             }
+            ticker = null
         }
     }
 
     private fun publish() {
         val c = controller ?: return
-        val current = knownTracks.firstOrNull { it.uri == c.currentMediaItem?.mediaId }
+        val track = knownTracks.getOrNull(currentIndex)
         val status = when {
             c.playerError != null -> PlaybackStatus.Error
             c.playbackState == Player.STATE_BUFFERING -> PlaybackStatus.Buffering
@@ -149,13 +251,14 @@ class PlaybackController(context: Context) : Player.Listener {
             c.playbackState == Player.STATE_IDLE -> PlaybackStatus.Idle
             else -> PlaybackStatus.Paused
         }
+
         state.value = state.value.copy(
             status = status,
-            current = current,
+            current = track,
             queue = knownTracks,
             positionMs = c.currentPosition.coerceAtLeast(0L),
-            durationMs = c.duration.takeIf { it > 0 } ?: current?.duration ?: 0L,
-            shuffleEnabled = c.shuffleModeEnabled,
+            durationMs = c.duration.takeIf { it > 0 } ?: track?.duration ?: 0L,
+            shuffleEnabled = shuffleEnabled,
             repeatMode = when (c.repeatMode) {
                 Player.REPEAT_MODE_ALL -> RepeatMode.All
                 Player.REPEAT_MODE_ONE -> RepeatMode.One
@@ -167,14 +270,17 @@ class PlaybackController(context: Context) : Player.Listener {
     }
 
     override fun onEvents(player: Player, events: Player.Events) {
-        scope.launch { publish() }
+        mainScope.launch {
+            publish()
+            updateTicker()
+        }
     }
 
     fun release() {
         ticker?.cancel()
         controller?.removeListener(this)
         MediaController.releaseFuture(future)
-        scope.coroutineContext[Job]?.cancel()
+        mainScope.cancel()
     }
 }
 
