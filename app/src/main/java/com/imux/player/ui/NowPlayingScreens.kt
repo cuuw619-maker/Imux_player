@@ -32,6 +32,7 @@ import com.imux.player.playback.PlaybackStatus
 import com.imux.player.playback.RepeatMode
 import com.imux.player.rendering.ImuxVisualizer
 import kotlin.math.max
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +52,6 @@ fun NowPlayingScreen(
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var artistOpen by rememberSaveable { mutableStateOf(false) }
     val swipeOffset = remember { Animatable(0f) }
-    val gestureScope = rememberCoroutineScope()
     val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
     Box(
         Modifier
@@ -65,14 +65,16 @@ fun NowPlayingScreen(
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { change, amount ->
                         change.consume()
-                        swipeOffset.snapTo(
-                            (swipeOffset.value + amount * 0.65f).coerceIn(-220f, 220f)
-                        )
+                        launch {
+                            swipeOffset.snapTo(
+                                (swipeOffset.value + amount * 0.65f).coerceIn(-220f, 220f)
+                            )
+                        }
                     },
                     onDragEnd = {
                         val offset = swipeOffset.value
                         if (offset < -120f) vm.next() else if (offset > 120f) vm.previous()
-                        gestureScope.launch {
+                        launch {
                             swipeOffset.animateTo(0f, tween(220))
                         }
                     }                )
