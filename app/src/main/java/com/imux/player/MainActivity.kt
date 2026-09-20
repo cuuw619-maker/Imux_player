@@ -116,7 +116,8 @@ class MainActivity : ComponentActivity() {
                                             app,
                                             settings.showPlaybackProgress,
                                             { nowPlaying = true },
-                                            vm
+                                            vm,
+                                            animationsEnabled = settings.animation != AnimationMode.Off
                                         )
                                         NavigationBar {
                                             NavigationBarItem(
