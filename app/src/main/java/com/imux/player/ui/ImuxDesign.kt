@@ -116,48 +116,39 @@ fun ImuxPlaybackControls(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().height(76.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier.fillMaxWidth().height(88.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PlaybackControlSurface(onClick = onPrevious, modifier = Modifier.weight(1f)) {
+        ImuxPressableIconButton(onClick = onPrevious, modifier = Modifier.size(58.dp)) {
             Icon(Icons.Default.SkipPrevious, "Previous", modifier = Modifier.size(30.dp))
         }
-        val playShape by animateDpAsState(
-            targetValue = if (playing) 34.dp else 24.dp,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMedium
-            ),
-            label = "play-shape"
-        )
         val playScale by animateFloatAsState(
-            targetValue = if (playing) 1.02f else 1f,
+            targetValue = if (playing) 1.04f else 1f,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
+                stiffness = Spring.StiffnessLow
             ),
-            label = "play-scale"
+            label = "primary-play-scale"
         )
         FilledIconButton(
             onClick = onPlayPause,
-            modifier = Modifier.weight(1.25f).size(76.dp).scale(playScale),
-            shape = RoundedCornerShape(playShape),
-            content = {
-                Crossfade(
-                    targetState = playing,
-                    animationSpec = androidx.compose.animation.core.tween(180),
-                    label = "play-icon"
-                ) { isPlaying ->
-                    Icon(
-                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        if (isPlaying) "Pause" else "Play",
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
+            modifier = Modifier.weight(1f).height(76.dp).scale(playScale),
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            Crossfade(
+                targetState = playing,
+                animationSpec = androidx.compose.animation.core.tween(180),
+                label = "play-icon"
+            ) { isPlaying ->
+                Icon(
+                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    if (isPlaying) "Pause" else "Play",
+                    modifier = Modifier.size(38.dp)
+                )
             }
-        )
-        PlaybackControlSurface(onClick = onNext, modifier = Modifier.weight(1f)) {
+        }
+        ImuxPressableIconButton(onClick = onNext, modifier = Modifier.size(58.dp)) {
             Icon(Icons.Default.SkipNext, "Next", modifier = Modifier.size(30.dp))
         }
     }
