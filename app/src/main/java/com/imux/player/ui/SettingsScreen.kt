@@ -2,6 +2,10 @@ package com.imux.player.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -13,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.imux.player.data.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
     val settings by vm.settings.collectAsState()
@@ -184,15 +188,18 @@ private fun <T> ChoiceChips(
     onSelected: (T) -> Unit
 ) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
     ) {
         items(values) { value ->
-            FilterChip(
-                selected = value == selected,
-                onClick = { onSelected(value) },
-                label = { Text(value.toString()) }
-            )
+            ToggleButton(
+                checked = value == selected,
+                onCheckedChange = { onSelected(value) },
+                shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(),
+                contentPadding = ToggleButtonDefaults.ContentPadding
+            ) {
+                Text(value.toString(), maxLines = 1)
+            }
         }
     }
 }
