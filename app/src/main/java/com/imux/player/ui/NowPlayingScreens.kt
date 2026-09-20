@@ -363,7 +363,7 @@ private fun NowPlayingArtwork(
         ) {}
 
         AnimatedContent(
-            targetState = state.current?.uri,
+            targetState = state.current,
             transitionSpec = {
                 if (motion) {
                     (
@@ -391,7 +391,7 @@ private fun NowPlayingArtwork(
                 shadowElevation = 10.dp
             ) {
                 ArtworkImage(
-                    state.current,
+                    it,
                     app,
                     Modifier
                         .fillMaxSize()
