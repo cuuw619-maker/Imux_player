@@ -1,6 +1,7 @@
 package com.imux.player.playback
 
 import android.content.ComponentName
+import android.media.MediaMetadataRetriever
 import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
@@ -199,14 +200,25 @@ class PlaybackController(context: Context) : Player.Listener {
         return ready
     }
 
-    private fun loadCurrent(c: Player) {
+    private suspend fun loadCurrent(c: Player) {
         c.shuffleModeEnabled = false
         val track = knownTracks.getOrNull(currentIndex) ?: return
-        c.setMediaItem(mediaItem(track), 0L)
+        val artwork = withContext(Dispatchers.IO) { loadArtworkBytes(track) }
+        c.setMediaItem(mediaItem(track, artwork), 0L)
         c.prepare()
         c.play()
         publish()
         updateTicker()
+    }
+
+    private fun loadArtworkBytes(track: Track): ByteArray? {
+        return runCatching {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(appContext, Uri.parse(track.uri))
+            val bytes = retriever.embeddedPicture
+            retriever.release()
+            bytes?.takeIf { it.size <= 2_000_000 }
+        }.getOrNull()
     }
 
     private fun advanceIndex(direction: Int): Boolean {
@@ -239,7 +251,7 @@ class PlaybackController(context: Context) : Player.Listener {
         return false
     }
 
-    private fun mediaItem(track: Track): MediaItem =
+    private fun mediaItem(track: Track, artwork: ByteArray? = null): MediaItem =
         MediaItem.Builder()
             .setUri(Uri.parse(track.uri))
             .setMediaId(track.uri)
@@ -248,6 +260,7 @@ class PlaybackController(context: Context) : Player.Listener {
                     .setTitle(track.title)
                     .setArtist(track.artist)
                     .setAlbumTitle(track.album)
+                    .apply { artwork?.let { setArtworkData(it, "image/*") } }
                     .build()
             )
             .build()
