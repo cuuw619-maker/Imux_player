@@ -66,7 +66,11 @@ class MainViewModel(private val app: ImuxApplication) : ViewModel() {
             }
     }
 
-    fun favorite(track: Track) = viewModelScope.launch { app.library.favorite(track.uri, !track.favorite) }
+    fun favorite(track: Track) = viewModelScope.launch {
+        val next = !track.favorite
+        app.library.favorite(track.uri, next)
+        playback.updateFavorite(track.uri, next)
+    }
 
     fun play(track: Track) {
         playback.play(track, tracks.value)
