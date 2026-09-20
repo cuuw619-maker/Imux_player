@@ -70,21 +70,8 @@ fun NowPlayingScreen(
                     },
                     onDragEnd = {
                         val offset = swipeOffset.value
-                        when {
-                            offset < -120f -> {
-                                vm.next()
-                                launch { swipeOffset.animateTo(0f, tween(260)) }
-                            }
-                            offset > 120f -> {
-                                vm.previous()
-                                launch { swipeOffset.animateTo(0f, tween(260)) }
-                            }
-                            else -> {
-                                launch { swipeOffset.animateTo(0f, tween(220)) }
-                            }
-                        }
-                    }
-                )
+                        if (offset < -120f) vm.next() else if (offset > 120f) vm.previous()
+                    }                )
             }
             .background(
             Brush.verticalGradient(listOf(accent.copy(alpha = 0.42f), MaterialTheme.colorScheme.background))
