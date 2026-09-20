@@ -5,8 +5,8 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -14,7 +14,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -40,9 +39,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imux.player.ImuxApplication
-import com.imux.player.data.Track
 import com.imux.player.playback.*
 import com.imux.player.rendering.ImuxVisualizer
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.max
@@ -60,27 +59,37 @@ fun NowPlayingScreen(
     val primary = MaterialTheme.colorScheme.primary
     var accent by remember { mutableStateOf(primary) }
     LaunchedEffect(primary) { accent = primary }
+
     var dragging by remember(state.current?.uri) { mutableStateOf(false) }
     var dragProgress by remember(state.current?.uri) { mutableFloatStateOf(0f) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var artistOpen by rememberSaveable { mutableStateOf(false) }
     val swipeOffset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    val progress = if (state.durationMs > 0) {
-        (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
-    } else 0f
     val motion = artworkAnimations && !reducedMotion
 
+    val progress = if (state.durationMs > 0L) {
+        (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    } else 0f
+
     Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                listOf(accent.copy(alpha = 0.28f), MaterialTheme.colorScheme.background)
+        Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        accent.copy(alpha = 0.20f),
+                        MaterialTheme.colorScheme.background
+                    )
+                )
             )
-        )
+            .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
         Column(Modifier.fillMaxSize()) {
             CenterAlignedTopAppBar(
-                title = { Text("Now playing", style = MaterialTheme.typography.titleMedium) },
+                title = {
+                    Text("Now playing", style = MaterialTheme.typography.titleMedium)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.KeyboardArrowDown, "Close player")
@@ -93,211 +102,109 @@ fun NowPlayingScreen(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.Transparent
-                ),
-                modifier = Modifier.statusBarsPadding()
+                )
             )
 
-            Column(
-                Modifier.fillMaxSize().weight(1f).verticalScroll(rememberScrollState())
-                    .navigationBarsPadding().padding(horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            BoxWithConstraints(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
             ) {
-                Spacer(Modifier.height(10.dp))
-                BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                    val artSize = maxWidth.coerceAtMost(390.dp)
-                    val artScale by animateFloatAsState(
-                        if (state.status == PlaybackStatus.Playing && motion) 1.018f else 1f,
-                        spring(dampingRatio = 0.82f, stiffness = 280f),
-                        label = "art-scale"
-                    )
-                    val haloRotation = rememberImuxRotation(motion && state.status == PlaybackStatus.Playing)
-                    val artLift by animateFloatAsState(
-                        if (state.status == PlaybackStatus.Playing && motion) 1.025f else 1f,
-                        spring(dampingRatio = 0.78f, stiffness = 180f),
-                        label = "art-lift"
-                    )
-                    Box(
-                        Modifier.size(artSize).align(Alignment.Center)
-                            .graphicsLayer {
-                                translationX = swipeOffset.value
-                                alpha = 1f - (abs(swipeOffset.value) / 700f).coerceIn(0f, 0.18f)
-                            }
-                            .pointerInput(state.current?.uri, reducedMotion) {
-                                if (reducedMotion) return@pointerInput
-                                detectHorizontalDragGestures(
-                                    onHorizontalDrag = { change, amount ->
-                                        change.consume()
-                                        scope.launch {
-                                            swipeOffset.snapTo(
-                                                (swipeOffset.value + amount * 0.72f).coerceIn(-180f, 180f)
-                                            )
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        val distance = swipeOffset.value
-                                        if (distance < -110f) vm.next()
-                                        if (distance > 110f) vm.previous()
-                                        scope.launch {
-                                            swipeOffset.animateTo(
-                                                0f,
-                                                spring(dampingRatio = 0.82f, stiffness = 420f)
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-                    ) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Surface(
-                                Modifier.fillMaxSize(0.98f)
-                                    .graphicsLayer {
-                                        rotationZ = haloRotation
-                                        scaleX = artLift
-                                        scaleY = artLift
-                                    }
-                                    .border(
-                                        2.dp,
-                                        Brush.sweepGradient(
-                                            listOf(
-                                                accent.copy(alpha = 0.05f),
-                                                accent.copy(alpha = 0.72f),
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                                accent.copy(alpha = 0.05f)
-                                            )
-                                        ),
-                                        RoundedCornerShape(36.dp)
-                                    ),
-                                color = Color.Transparent,
-                                shape = RoundedCornerShape(36.dp)
-                            ) {}
-                            Surface(
-                                Modifier.fillMaxSize().scale(artScale),
-                                shape = RoundedCornerShape(32.dp),
-                                tonalElevation = 10.dp,
-                                shadowElevation = 14.dp
-                            ) {
-                            ArtworkImage(
-                                state.current,
-                                app,
-                                Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp))
-                                    .pointerInput(state.current?.uri) {
-                                        detectTapGestures(onDoubleTap = { vm.togglePlayback() })
-                                    }
-                            ) { extracted -> accent = extracted }
-                        }
-                    }
-                }
+                val viewport = imuxViewport(maxWidth, maxHeight)
 
-                Spacer(Modifier.height(24.dp))
-                AnimatedContent(
-                    targetState = state.current,
-                    transitionSpec = {
-                        if (motion) {
-                            (fadeIn(tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(240))) togetherWith
-                                (fadeOut(tween(150)) + scaleOut(targetScale = 0.98f, animationSpec = tween(160)))
-                        } else EnterTransition.None togetherWith ExitTransition.None
-                    },
-                    label = "track-details"
-                ) { track ->
-                    Column(
-                        Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                if (viewport.landscape) {
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = viewport.sidePadding, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            track?.title ?: "Nothing playing",
-                            style = MaterialTheme.typography.headlineSmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center
-                        )
-                        TextButton(
-                            onClick = { if (track != null) artistOpen = true },
-                            enabled = track != null
+                        Box(
+                            Modifier
+                                .weight(0.48f)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                track?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song",
-                                style = MaterialTheme.typography.titleMedium
+                            NowPlayingArtwork(
+                                state = state,
+                                app = app,
+                                accent = accent,
+                                artworkSize = viewport.artworkSize,
+                                motion = motion,
+                                reducedMotion = reducedMotion,
+                                swipeOffset = swipeOffset,
+                                scope = scope,
+                                onNext = vm::next,
+                                onPrevious = vm::previous,
+                                onToggle = vm::togglePlayback,
+                                onAccent = { accent = it }
                             )
                         }
-                        if (!track?.album.isNullOrBlank()) {
-                            Text(
-                                track?.album.orEmpty(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        PlayerDetailsAndControls(
+                            state = state,
+                            vm = vm,
+                            progress = progress,
+                            dragging = dragging,
+                            dragProgress = dragProgress,
+                            reducedMotion = reducedMotion,
+                            motion = motion,
+                            queueOpen = { queueOpen = true },
+                            artistOpen = { artistOpen = true },
+                            onDragging = { dragging = it },
+                            onDragProgress = { dragProgress = it },
+                            modifier = Modifier
+                                .weight(0.52f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                        )
+                    }
+                } else {
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = viewport.sidePadding)
+                    ) {
+                        Spacer(Modifier.height(6.dp))
+                        Box(
+                            Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            NowPlayingArtwork(
+                                state = state,
+                                app = app,
+                                accent = accent,
+                                artworkSize = viewport.artworkSize,
+                                motion = motion,
+                                reducedMotion = reducedMotion,
+                                swipeOffset = swipeOffset,
+                                scope = scope,
+                                onNext = vm::next,
+                                onPrevious = vm::previous,
+                                onToggle = vm::togglePlayback,
+                                onAccent = { accent = it }
                             )
                         }
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-                Slider(
-                    value = if (dragging) dragProgress else progress,
-                    onValueChange = { dragging = true; dragProgress = it },
-                    onValueChangeFinished = {
-                        dragging = false
-                        if (state.durationMs > 0) vm.seekTo((dragProgress * state.durationMs).toLong())
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatTime(state.positionMs), style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("-"+formatTime(max(0L, state.durationMs - state.positionMs)),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                if (state.status == PlaybackStatus.Playing && !reducedMotion) {
-                    Spacer(Modifier.height(8.dp))
-                    ImuxVisualizer(progress, true, accent, reducedMotion = reducedMotion)
-                }
-
-                Spacer(Modifier.height(12.dp))
-                ImuxPlaybackControls(
-                    playing = state.status == PlaybackStatus.Playing,
-                    onPrevious = vm::previous,
-                    onPlayPause = vm::togglePlayback,
-                    onNext = vm::next
-                )
-
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    ImuxPressableIconButton(
-                        onClick = { state.current?.let(vm::favorite) },
-                        selected = state.current?.favorite == true
-                    ) {
-                        Icon(
-                            if (state.current?.favorite == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            "Favorite"
+                        Spacer(Modifier.height(viewport.sectionGap))
+                        PlayerDetailsAndControls(
+                            state = state,
+                            vm = vm,
+                            progress = progress,
+                            dragging = dragging,
+                            dragProgress = dragProgress,
+                            reducedMotion = reducedMotion,
+                            motion = motion,
+                            queueOpen = { queueOpen = true },
+                            artistOpen = { artistOpen = true },
+                            onDragging = { dragging = it },
+                            onDragProgress = { dragProgress = it },
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    ImuxPressableIconButton(
-                        onClick = { vm.shuffle(!state.shuffleEnabled) },
-                        selected = state.shuffleEnabled
-                    ) { Icon(Icons.Default.Shuffle, "Shuffle") }
-                    AssistChip(
-                        onClick = { queueOpen = true },
-                        label = { Text("Queue "+state.queue.size) },
-                        leadingIcon = { Icon(Icons.Default.QueueMusic, null) }
-                    )
-                    ImuxPressableIconButton(
-                        onClick = vm::cycleRepeat,
-                        selected = state.repeatMode != RepeatMode.Off
-                    ) {
-                        Icon(
-                            if (state.repeatMode == RepeatMode.One) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                            "Repeat"
-                        )
-                    }
-                    ImuxPressableIconButton(onClick = {}) {
-                        Icon(Icons.Default.MoreVert, "More")
+                        Spacer(Modifier.height(24.dp))
                     }
                 }
-                Spacer(Modifier.height(24.dp))
             }
         }
     }
@@ -311,6 +218,7 @@ fun NowPlayingScreen(
             onDismiss = { artistOpen = false }
         )
     }
+
     if (queueOpen) {
         ModalBottomSheet(onDismissRequest = { queueOpen = false }) {
             Text(
@@ -321,11 +229,19 @@ fun NowPlayingScreen(
             LazyColumn(contentPadding = PaddingValues(bottom = 40.dp)) {
                 items(state.queue, key = { it.uri }) { track ->
                     Surface(
-                        onClick = { vm.play(track); queueOpen = false },
-                        color = if (track.uri == state.current?.uri)
-                            MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        onClick = {
+                            vm.play(track)
+                            queueOpen = false
+                        },
+                        color = if (track.uri == state.current?.uri) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            Color.Transparent
+                        },
                         shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 3.dp)
                     ) {
                         Row(
                             Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
@@ -341,7 +257,11 @@ fun NowPlayingScreen(
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    track.title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                                 Text(
                                     track.artist.ifBlank { "Unknown artist" },
                                     maxLines = 1,
@@ -363,6 +283,300 @@ fun NowPlayingScreen(
     }
 }
 
+@Composable
+private fun NowPlayingArtwork(
+    state: PlaybackState,
+    app: ImuxApplication,
+    accent: Color,
+    artworkSize: androidx.compose.ui.unit.Dp,
+    motion: Boolean,
+    reducedMotion: Boolean,
+    swipeOffset: Animatable<Float, *>,
+    scope: CoroutineScope,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onToggle: () -> Unit,
+    onAccent: (Color) -> Unit
+) {
+    val playing = state.status == PlaybackStatus.Playing
+    val artScale by animateFloatAsState(
+        targetValue = if (playing && motion) 1.012f else 1f,
+        animationSpec = spring(dampingRatio = 0.92f, stiffness = 420f),
+        label = "art-scale"
+    )
+    val haloRotation = rememberImuxRotation(playing && motion)
+
+    Box(
+        Modifier
+            .size(artworkSize)
+            .graphicsLayer {
+                translationX = swipeOffset.value
+                alpha = 1f - (abs(swipeOffset.value) / 520f).coerceIn(0f, 0.22f)
+            }
+            .pointerInput(state.current?.uri, reducedMotion) {
+                if (reducedMotion) return@pointerInput
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, amount ->
+                        change.consume()
+                        scope.launch {
+                            swipeOffset.snapTo(
+                                (swipeOffset.value + amount * 0.72f)
+                                    .coerceIn(-artworkSize.value * 0.48f, artworkSize.value * 0.48f)
+                            )
+                        }
+                    },
+                    onDragEnd = {
+                        val distance = swipeOffset.value
+                        when {
+                            distance < -artworkSize.value * 0.28f -> onNext()
+                            distance > artworkSize.value * 0.28f -> onPrevious()
+                        }
+                        scope.launch {
+                            swipeOffset.animateTo(
+                                0f,
+                                spring(dampingRatio = 0.86f, stiffness = 500f)
+                            )
+                        }
+                    }
+                )
+            }
+    ) {
+        Surface(
+            Modifier
+                .fillMaxSize(0.985f)
+                .align(Alignment.Center)
+                .graphicsLayer { rotationZ = haloRotation }
+                .border(
+                    width = 1.5.dp,
+                    brush = Brush.sweepGradient(
+                        listOf(
+                            accent.copy(alpha = 0.08f),
+                            accent.copy(alpha = 0.58f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            accent.copy(alpha = 0.08f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(30.dp)
+                ),
+            color = Color.Transparent,
+            shape = RoundedCornerShape(30.dp)
+        ) {}
+
+        AnimatedContent(
+            targetState = state.current?.uri,
+            transitionSpec = {
+                if (motion) {
+                    (
+                        slideInHorizontally(
+                            initialOffsetX = { it / 7 },
+                            animationSpec = tween(230)
+                        ) + fadeIn(tween(190))
+                    ) togetherWith (
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 10 },
+                            animationSpec = tween(170)
+                        ) + fadeOut(tween(130))
+                    )
+                } else {
+                    EnterTransition.None togetherWith ExitTransition.None
+                }
+            },
+            label = "artwork-change",
+            modifier = Modifier.fillMaxSize().scale(artScale)
+        ) {
+            Surface(
+                Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp)),
+                shape = RoundedCornerShape(28.dp),
+                tonalElevation = 8.dp,
+                shadowElevation = 10.dp
+            ) {
+                ArtworkImage(
+                    state.current,
+                    app,
+                    Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(28.dp))
+                        .pointerInput(state.current?.uri) {
+                            detectTapGestures(onDoubleTap = { onToggle() })
+                        }
+                ) { extracted ->
+                    onAccent(extracted)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerDetailsAndControls(
+    state: PlaybackState,
+    vm: MainViewModel,
+    progress: Float,
+    dragging: Boolean,
+    dragProgress: Float,
+    reducedMotion: Boolean,
+    motion: Boolean,
+    queueOpen: () -> Unit,
+    artistOpen: () -> Unit,
+    onDragging: (Boolean) -> Unit,
+    onDragProgress: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AnimatedContent(
+            targetState = state.current,
+            transitionSpec = {
+                if (motion) {
+                    (
+                        slideInHorizontally(
+                            initialOffsetX = { it / 8 },
+                            animationSpec = tween(210)
+                        ) + fadeIn(tween(180))
+                    ) togetherWith (
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 12 },
+                            animationSpec = tween(150)
+                        ) + fadeOut(tween(120))
+                    )
+                } else {
+                    EnterTransition.None togetherWith ExitTransition.None
+                }
+            },
+            label = "track-info",
+            modifier = Modifier.fillMaxWidth()
+        ) { track ->
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    track?.title ?: "Nothing playing",
+                    style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                TextButton(
+                    onClick = artistOpen,
+                    enabled = track != null
+                ) {
+                    Text(
+                        track?.artist?.ifBlank { "Unknown artist" } ?: "Choose a song",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                if (!track?.album.isNullOrBlank()) {
+                    Text(
+                        track?.album.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Slider(
+            value = if (dragging) dragProgress else progress,
+            onValueChange = {
+                onDragging(true)
+                onDragProgress(it)
+            },
+            onValueChangeFinished = {
+                onDragging(false)
+                if (state.durationMs > 0L) {
+                    vm.seekTo((dragProgress * state.durationMs).toLong())
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                formatTime(state.positionMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "-\${formatTime(max(0L, state.durationMs - state.positionMs))}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (state.status == PlaybackStatus.Playing && !reducedMotion) {
+            Spacer(Modifier.height(5.dp))
+            ImuxVisualizer(
+                progress,
+                true,
+                MaterialTheme.colorScheme.primary,
+                reducedMotion = reducedMotion
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        ImuxPlaybackControls(
+            playing = state.status == PlaybackStatus.Playing,
+            onPrevious = vm::previous,
+            onPlayPause = vm::togglePlayback,
+            onNext = vm::next,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ImuxPressableIconButton(
+                onClick = { state.current?.let(vm::favorite) },
+                selected = state.current?.favorite == true,
+                modifier = Modifier.size(50.dp)
+            ) {
+                Icon(
+                    if (state.current?.favorite == true) Icons.Default.Favorite
+                    else Icons.Default.FavoriteBorder,
+                    "Favorite"
+                )
+            }
+
+            ImuxPressableIconButton(
+                onClick = { vm.shuffle(!state.shuffleEnabled) },
+                selected = state.shuffleEnabled,
+                modifier = Modifier.size(50.dp)
+            ) {
+                Icon(Icons.Default.Shuffle, "Shuffle")
+            }
+
+            AssistChip(
+                onClick = queueOpen,
+                label = { Text("Queue \${state.queue.size}") },
+                leadingIcon = { Icon(Icons.Default.QueueMusic, null) }
+            )
+
+            ImuxPressableIconButton(
+                onClick = vm::cycleRepeat,
+                selected = state.repeatMode != RepeatMode.Off,
+                modifier = Modifier.size(50.dp)
+            ) {
+                Icon(
+                    if (state.repeatMode == RepeatMode.One) Icons.Default.RepeatOne
+                    else Icons.Default.Repeat,
+                    "Repeat"
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -377,20 +591,28 @@ fun MiniPlayer(
     AnimatedContent(
         targetState = state.current != null,
         transitionSpec = {
-            if (animationsEnabled) fadeIn(tween(180)) togetherWith fadeOut(tween(120))
-            else EnterTransition.None togetherWith ExitTransition.None
+            if (animationsEnabled) {
+                fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+            } else {
+                EnterTransition.None togetherWith ExitTransition.None
+            }
         },
         label = "mini-visibility"
     ) { visible ->
         if (!visible) return@AnimatedContent
-        val progress = if (state.durationMs > 0)
-            (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
+
+        val progress = if (state.durationMs > 0L) {
+            (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+        } else 0f
+
         Surface(
             onClick = onOpen,
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 3.dp,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
                 .pointerInput(state.current?.uri) {
                     var totalDrag = 0f
                     detectHorizontalDragGestures(
@@ -407,15 +629,18 @@ fun MiniPlayer(
                 }
         ) {
             Column {
-                if (showProgress && state.durationMs > 0) {
+                if (showProgress && state.durationMs > 0L) {
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier.fillMaxWidth().height(3.dp)
                     )
                 }
-                Row(Modifier.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    ArtworkImage(state.current, app, Modifier.size(54.dp))
-                    Spacer(Modifier.width(12.dp))
+                Row(
+                    Modifier.padding(9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ArtworkImage(state.current, app, Modifier.size(52.dp))
+                    Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             state.current?.title.orEmpty(),
@@ -433,7 +658,7 @@ fun MiniPlayer(
                     }
                     FilledTonalIconButton(
                         onClick = vm::togglePlayback,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(46.dp)
                     ) {
                         Icon(
                             if (state.status == PlaybackStatus.Playing) Icons.Default.Pause
@@ -448,6 +673,6 @@ fun MiniPlayer(
 }
 
 private fun formatTime(ms: Long): String {
-    val seconds = ms.coerceAtLeast(0L) / 1000
-    return "%d:%02d".format(seconds / 60, seconds % 60)
+    val seconds = ms.coerceAtLeast(0L) / 1000L
+    return "%d:%02d".format(seconds / 60L, seconds % 60L)
 }
