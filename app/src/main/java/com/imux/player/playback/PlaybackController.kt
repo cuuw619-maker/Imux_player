@@ -42,6 +42,7 @@ class PlaybackController(context: Context) : Player.Listener {
     @Volatile private var knownTracks: List<Track> = emptyList()
     @Volatile private var currentIndex = -1
     @Volatile private var shuffleEnabled = false
+    @Volatile private var repeatMode = RepeatMode.Off
 
     val state = MutableStateFlow(PlaybackState())
 
@@ -123,17 +124,19 @@ class PlaybackController(context: Context) : Player.Listener {
 
     fun cycleRepeat() = mainScope.launch {
         val c = awaitController() ?: return@launch
-        c.repeatMode = when (c.repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
+        repeatMode = when (repeatMode) {
+            RepeatMode.Off -> RepeatMode.All
+            RepeatMode.All -> RepeatMode.One
+            RepeatMode.One -> RepeatMode.Off
         }
+        c.repeatMode = if (repeatMode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         publish()
     }
 
     fun setRepeat(mode: RepeatMode) = mainScope.launch {
         awaitController()?.let {
-            it.repeatMode = mode.toMedia3()
+            repeatMode = mode
+            it.repeatMode = if (mode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             publish()
         }
     }
@@ -147,13 +150,14 @@ class PlaybackController(context: Context) : Player.Listener {
 
     fun applySettings(settings: PlayerSettings) {
         shuffleEnabled = settings.shuffleDefault
+        repeatMode = when (settings.repeatDefault) {
+            "ALL" -> RepeatMode.All
+            "ONE" -> RepeatMode.One
+            else -> RepeatMode.Off
+        }
         mainScope.launch {
             val c = awaitController() ?: return@launch
-            c.repeatMode = when (settings.repeatDefault) {
-                "ALL" -> Player.REPEAT_MODE_ALL
-                "ONE" -> Player.REPEAT_MODE_ONE
-                else -> Player.REPEAT_MODE_OFF
-            }
+            c.repeatMode = if (repeatMode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             c.setPlaybackSpeed(settings.playbackSpeed.coerceIn(0.25f, 3f))
             publish()
         }
@@ -201,7 +205,7 @@ class PlaybackController(context: Context) : Player.Listener {
             return true
         }
 
-        if (controller?.repeatMode == Player.REPEAT_MODE_ALL) {
+        if (repeatMode == RepeatMode.All) {
             currentIndex = if (direction > 0) 0 else size - 1
             return true
         }
@@ -259,11 +263,7 @@ class PlaybackController(context: Context) : Player.Listener {
             positionMs = c.currentPosition.coerceAtLeast(0L),
             durationMs = c.duration.takeIf { it > 0 } ?: track?.duration ?: 0L,
             shuffleEnabled = shuffleEnabled,
-            repeatMode = when (c.repeatMode) {
-                Player.REPEAT_MODE_ALL -> RepeatMode.All
-                Player.REPEAT_MODE_ONE -> RepeatMode.One
-                else -> RepeatMode.Off
-            },
+            repeatMode = repeatMode,
             speed = c.playbackParameters.speed,
             error = c.playerError?.message
         )
@@ -271,6 +271,12 @@ class PlaybackController(context: Context) : Player.Listener {
 
     override fun onEvents(player: Player, events: Player.Events) {
         mainScope.launch {
+            if (player.playbackState == Player.STATE_ENDED && repeatMode == RepeatMode.All) {
+                if (advanceIndex(1)) {
+                    loadCurrent(player as MediaController)
+                    return@launch
+                }
+            }
             publish()
             updateTicker()
         }
