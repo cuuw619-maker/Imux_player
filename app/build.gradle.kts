@@ -1,8 +1,9 @@
 plugins { alias(libs.plugins.android); alias(libs.plugins.kotlin); alias(libs.plugins.compose); alias(libs.plugins.ksp) }
-android { namespace="com.imux.player"; compileSdk=36
- defaultConfig { applicationId="com.imux.player"; minSdk=26; targetSdk=36; versionCode=1; versionName="0.1.0" }
+android { namespace="com.imux.player"; compileSdk=37
+ defaultConfig { applicationId="com.imux.player"; minSdk=26; targetSdk=37; versionCode=1; versionName="0.1.0" }
  compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget="17" }; buildFeatures { compose=true }
+ kotlin { compilerOptions { freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"); freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi") } }
 }
 dependencies {
  implementation(platform(libs.bom)); implementation(libs.core); implementation(libs.activity); implementation(libs.lifecycle); implementation(libs.viewmodel); implementation(libs.navigation); implementation(libs.ui); implementation(libs.icons); implementation(libs.material3)
