@@ -187,7 +187,7 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
                                 0 -> Text(track.artist.ifBlank { "Unknown artist" })
                                 1 -> Text(track.artist.ifBlank { "Unknown artist" })
                                 2 -> Text(
-                                    "$" + "{tracks.count { it.artist.equals(track.artist, ignoreCase = true) }} songs"
+                                    tracks.count { it.artist.equals(track.artist, ignoreCase = true) }.toString() + " songs"
                                 )
                                 else -> Text(track.title)
                             }
