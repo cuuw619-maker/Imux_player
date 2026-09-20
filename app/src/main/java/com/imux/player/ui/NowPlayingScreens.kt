@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -109,11 +110,17 @@ fun NowPlayingScreen(
                         spring(dampingRatio = 0.82f, stiffness = 280f),
                         label = "art-scale"
                     )
+                    val haloRotation = rememberImuxRotation(motion && state.status == PlaybackStatus.Playing)
+                    val artLift by animateFloatAsState(
+                        if (state.status == PlaybackStatus.Playing && motion) 1.025f else 1f,
+                        spring(dampingRatio = 0.78f, stiffness = 180f),
+                        label = "art-lift"
+                    )
                     Box(
                         Modifier.size(artSize).align(Alignment.Center)
                             .graphicsLayer {
                                 translationX = swipeOffset.value
-                                alpha = 1f - (abs(swipeOffset.value) / 700f).coerceIn(0f, 0.16f)
+                                alpha = 1f - (abs(swipeOffset.value) / 700f).coerceIn(0f, 0.18f)
                             }
                             .pointerInput(state.current?.uri, reducedMotion) {
                                 if (reducedMotion) return@pointerInput
@@ -140,12 +147,35 @@ fun NowPlayingScreen(
                                 )
                             }
                     ) {
-                        Surface(
-                            Modifier.fillMaxSize().scale(artScale),
-                            shape = RoundedCornerShape(32.dp),
-                            tonalElevation = 8.dp,
-                            shadowElevation = 10.dp
-                        ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Surface(
+                                Modifier.fillMaxSize(0.98f)
+                                    .graphicsLayer {
+                                        rotationZ = haloRotation
+                                        scaleX = artLift
+                                        scaleY = artLift
+                                    }
+                                    .border(
+                                        2.dp,
+                                        Brush.sweepGradient(
+                                            listOf(
+                                                accent.copy(alpha = 0.05f),
+                                                accent.copy(alpha = 0.72f),
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                                accent.copy(alpha = 0.05f)
+                                            )
+                                        ),
+                                        RoundedCornerShape(36.dp)
+                                    ),
+                                color = Color.Transparent,
+                                shape = RoundedCornerShape(36.dp)
+                            ) {}
+                            Surface(
+                                Modifier.fillMaxSize().scale(artScale),
+                                shape = RoundedCornerShape(32.dp),
+                                tonalElevation = 10.dp,
+                                shadowElevation = 14.dp
+                            ) {
                             ArtworkImage(
                                 state.current,
                                 app,
