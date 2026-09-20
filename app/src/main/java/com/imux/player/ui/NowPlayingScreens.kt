@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -49,10 +50,42 @@ fun NowPlayingScreen(
     var dragProgress by remember(state.current?.uri) { mutableFloatStateOf(0f) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var artistOpen by rememberSaveable { mutableStateOf(false) }
+    val swipeOffset = remember { Animatable(0f) }
     val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
     Box(
         Modifier
             .fillMaxSize()
+            .graphicsLayer {
+                translationX = swipeOffset.value
+                alpha = 1f - (kotlin.math.abs(swipeOffset.value) / 900f).coerceIn(0f, 0.12f)
+            }
+            .pointerInput(state.current?.uri, reducedMotion) {
+                if (reducedMotion) return@pointerInput
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, amount ->
+                        change.consume()
+                        swipeOffset.snapTo(
+                            (swipeOffset.value + amount * 0.65f).coerceIn(-220f, 220f)
+                        )
+                    },
+                    onDragEnd = {
+                        val offset = swipeOffset.value
+                        when {
+                            offset < -120f -> {
+                                vm.next()
+                                launch { swipeOffset.animateTo(0f, tween(260)) }
+                            }
+                            offset > 120f -> {
+                                vm.previous()
+                                launch { swipeOffset.animateTo(0f, tween(260)) }
+                            }
+                            else -> {
+                                launch { swipeOffset.animateTo(0f, tween(220)) }
+                            }
+                        }
+                    }
+                )
+            }
             .background(
             Brush.verticalGradient(listOf(accent.copy(alpha = 0.42f), MaterialTheme.colorScheme.background))
         )
