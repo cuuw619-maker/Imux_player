@@ -4,6 +4,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -19,10 +20,10 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -76,13 +77,14 @@ fun ImuxPressableIconButton(
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.90f else 1f,
+        targetValue = if (pressed) 0.95f else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMedium
         ),
         label = "icon-press"
     )
+
     if (selected) {
         FilledTonalIconToggleButton(
             checked = true,
@@ -111,41 +113,62 @@ fun ImuxPlaybackControls(
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val playScale by animateFloatAsState(
+        targetValue = if (playing) 1.018f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "primary-play-scale"
+    )
+
     Row(
-        modifier = modifier.fillMaxWidth().height(88.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(84.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ImuxPressableIconButton(onClick = onPrevious, modifier = Modifier.size(58.dp)) {
-            Icon(Icons.Default.SkipPrevious, "Previous", modifier = Modifier.size(30.dp))
+        ImuxPressableIconButton(
+            onClick = onPrevious,
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(
+                Icons.Default.SkipPrevious,
+                "Previous",
+                modifier = Modifier.size(30.dp)
+            )
         }
-        val playScale by animateFloatAsState(
-            targetValue = if (playing) 1.04f else 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "primary-play-scale"
-        )
+
         FilledIconButton(
             onClick = onPlayPause,
-            modifier = Modifier.weight(1f).height(76.dp).scale(playScale),
-            shape = MaterialTheme.shapes.extraLarge
+            modifier = Modifier
+                .size(74.dp)
+                .scale(playScale),
+            shape = RoundedCornerShape(26.dp)
         ) {
             Crossfade(
                 targetState = playing,
-                animationSpec = androidx.compose.animation.core.tween(180),
+                animationSpec = tween(150),
                 label = "play-icon"
             ) { isPlaying ->
                 Icon(
                     if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     if (isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }
-        ImuxPressableIconButton(onClick = onNext, modifier = Modifier.size(58.dp)) {
-            Icon(Icons.Default.SkipNext, "Next", modifier = Modifier.size(30.dp))
+
+        ImuxPressableIconButton(
+            onClick = onNext,
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(
+                Icons.Default.SkipNext,
+                "Next",
+                modifier = Modifier.size(30.dp)
+            )
         }
     }
 }
