@@ -24,8 +24,9 @@ fun HomeScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Un
     val playlists by vm.playlists.collectAsState()
     val recent = remember(tracks) { tracks.sortedByDescending { it.lastPlayed ?: 0L } }
     val added = remember(tracks) { tracks.sortedByDescending { it.addedAt } }
+    val playback by vm.playbackState.collectAsState()
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().animateContentSize(),
         contentPadding = PaddingValues(bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
@@ -35,9 +36,21 @@ fun HomeScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Un
                 Text("Your music, locally.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item { TrackSection("Continue listening", recent.take(12), vm, app, openNowPlaying) }
-        item { TrackSection("Recently added", added.take(12), vm, app, openNowPlaying) }
-        item { TrackSection("Favorites", tracks.filter { it.favorite }.take(12), vm, app, openNowPlaying) }
+        item {
+            ImuxAnimatedPresence(visible = recent.isNotEmpty()) {
+                TrackSection("Continue listening", recent.take(12), vm, app, openNowPlaying, playback.current?.uri)
+            }
+        }
+        item {
+            ImuxAnimatedPresence(visible = added.isNotEmpty()) {
+                TrackSection("Recently added", added.take(12), vm, app, openNowPlaying, playback.current?.uri)
+            }
+        }
+        item {
+            ImuxAnimatedPresence(visible = tracks.any { it.favorite }) {
+                TrackSection("Favorites", tracks.filter { it.favorite }.take(12), vm, app, openNowPlaying, playback.current?.uri)
+            }
+        }
         item {
             if (playlists.isNotEmpty()) {
                 Column {
@@ -59,7 +72,7 @@ fun HomeScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Un
 }
 
 @Composable
-private fun TrackSection(title: String, tracks: List<Track>, vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Unit) {
+private fun TrackSection(title: String, tracks: List<Track>, vm: MainViewModel, app: ImuxApplication, openNowPlaying: () -> Unit, currentUri: String?) {
     if (tracks.isEmpty()) return
     Column {
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
@@ -67,7 +80,21 @@ private fun TrackSection(title: String, tracks: List<Track>, vm: MainViewModel, 
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(tracks, key = { it.uri }) { track ->
                 Column(Modifier.width(148.dp)) {
-                    ArtworkImage(track, app, Modifier.fillMaxWidth().aspectRatio(1f))
+                    Box {
+                        ArtworkImage(track, app, Modifier.fillMaxWidth().aspectRatio(1f))
+                        if (track.uri == currentUri) {
+                            Surface(
+                                shape = MaterialTheme.shapes.large,
+                                tonalElevation = 3.dp,
+                                modifier = Modifier.padding(8.dp)
+                            ) {
+                                ImuxPlayingEqIcon(
+                                    playing = true,
+                                    modifier = Modifier.padding(5.dp)
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                     Text(track.artist.ifBlank { "Unknown artist" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -88,6 +115,7 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var selecting by rememberSaveable { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() }
+    val playback by vm.playbackState.collectAsState()
     val tabs = listOf("Songs", "Albums", "Artists", "Folders", "Playlists")
     val filtered = remember(tracks, query, tab) {
         val q = query.trim().lowercase()
@@ -149,7 +177,17 @@ fun LibraryScreen(vm: MainViewModel, app: ImuxApplication, openNowPlaying: () ->
                             )
                         },
                         supportingContent = { Text(if (tab == 0) track.artist.ifBlank { "Unknown artist" } else track.title) },
-                        leadingContent = { ArtworkImage(track, app, Modifier.size(52.dp)) },
+                        leadingContent = {
+                            Box {
+                                ArtworkImage(track, app, Modifier.size(52.dp))
+                                if (track.uri == playback.current?.uri) {
+                                    ImuxPlayingEqIcon(
+                                        playing = playback.status == com.imux.player.playback.PlaybackStatus.Playing,
+                                        modifier = Modifier.padding(15.dp)
+                                    )
+                                }
+                            }
+                        },
                         trailingContent = {
                             if (selecting) {
                                 Checkbox(checked = isSelected, onCheckedChange = { if (it) selected.add(track.uri) else selected.remove(track.uri) })
